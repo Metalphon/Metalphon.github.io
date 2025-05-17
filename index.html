@@ -1,61 +1,590 @@
-<!-- index.html 示例 -->
 <!DOCTYPE html>
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>我的个人主页</title>
+  <title>王家睿的留言板与简介</title> <!-- 修改标题 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAYftoevTnczZimCLzzJujqFqBXcReMvt8",
+      authDomain: "metalphon-7ed49.firebaseapp.com",
+      projectId: "metalphon-7ed49",
+      storageBucket: "metalphon-7ed49.appspot.com",
+      messagingSenderId: "965453822169",
+      appId: "1:965453822169:web:8ea6ec693243af8892e6c8",
+      measurementId: "G-Y6LN2HHHH7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let currentUser = null;
+    let loadingAnimationElement = null;
+
+    function showLoading() {
+      if (loadingAnimationElement) loadingAnimationElement.style.display = "flex";
+    }
+
+    function hideLoading() {
+      if (loadingAnimationElement) loadingAnimationElement.style.display = "none";
+    }
+
+
+    window.startChat = () => {
+      const nameInput = document.getElementById("nickname").value.trim();
+      if (nameInput) {
+        currentUser = nameInput;
+        document.getElementById("welcome-section").style.display = "none";
+        document.getElementById("profile-section").style.display = "block"; // 显示简介
+        document.getElementById("chat-section").style.display = "block";    // 显示聊天
+        document.getElementById("welcome-name").textContent = currentUser;
+        loadMessages();
+      } else {
+        alert("请输入你的昵称！");
+      }
+    };
+
+    window.submitMessage = async () => {
+      const input = document.getElementById("message-input");
+      const message = input.value.trim();
+
+      if (!currentUser) {
+        alert("请先进入留言板（设置昵称）。");
+        return;
+      }
+      if (!message) {
+        alert("留言内容不能为空！");
+        return;
+      }
+
+      showLoading(); 
+      const messagesContainer = document.getElementById("messages");
+      messagesContainer.innerHTML = ''; 
+
+      try {
+        await addDoc(collection(db, "messages"), {
+          user: currentUser,
+          content: message,
+          timestamp: serverTimestamp() 
+        });
+        input.value = "";
+      } catch (error) {
+        console.error("Error adding document: ", error);
+        alert("发送留言失败，请查看控制台获取更多信息。");
+        hideLoading(); 
+      } finally {
+        loadMessages(); 
+      }
+    };
+
+    window.loadMessages = async () => {
+      const container = document.getElementById("messages");
+      showLoading(); 
+
+      try {
+        const q = query(collection(db, "messages"), orderBy("timestamp", "desc"));
+        const querySnapshot = await getDocs(q);
+        let html = "";
+        if (querySnapshot.empty) {
+          html = "<p>还没有留言，快来抢沙发吧！</p>";
+        } else {
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            const date = data.timestamp && data.timestamp.toDate ? data.timestamp.toDate().toLocaleString('zh-CN') : '发送中...'; // 使用中文区域设置
+            html += `
+              <div class="message-item">
+                <strong class="message-user">${data.user || "匿名"}</strong>
+                <span class="message-timestamp">(${date})</span>：
+                <span class="message-content">${data.content}</span>
+              </div>
+            `;
+          });
+        }
+        container.innerHTML = html;
+      } catch (error) {
+        console.error("Error loading messages: ", error);
+        container.innerHTML = "<p style='color:red;'>加载留言失败，请检查网络或稍后再试。</p>";
+      } finally {
+        hideLoading(); 
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadingAnimationElement = document.getElementById("loading-animation");
+    });
+
+  </script>
+
   <style>
     body {
-      font-family: "Segoe UI", sans-serif;
-      background: linear-gradient(135deg, #1f1c2c, #928dab);
-      color: white;
+      min-height: 100vh;
       margin: 0;
       padding: 0;
+      background: linear-gradient(120deg, #a5b4fc 0%, #b39ddb 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', 'Arial', sans-serif;
     }
-    .container {
-      max-width: 800px;
-      margin: auto;
-      padding: 2rem;
+    .center-bg {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .form {
+      --background: #d3d3d3;
+      --input-focus: #2d8cf0;
+      --font-color: #323232;
+      --font-color-sub: #666;
+      --bg-color: #fff;
+      --main-color: #323232;
+      padding: 20px;
+      background: var(--background);
+      display: flex;
+      flex-direction: column;
+      align-items: center; /* 居中 */
+      justify-content: center;
+      gap: 20px;
+      border-radius: 5px;
+      border: 2px solid var(--main-color);
+      box-shadow: 4px 4px var(--main-color);
+    }
+    .form > p {
+      color: var(--font-color);
+      font-weight: 700;
+      font-size: 20px;
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .form > p > span {
+      color: var(--font-color-sub);
+      font-weight: 600;
+      font-size: 17px;
+    }
+    .separator {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .separator > div {
+      width: 100px;
+      height: 3px;
+      border-radius: 5px;
+      background-color: var(--font-color-sub);
+    }
+    .separator > span {
+      color: var(--font-color);
+      font-weight: 600;
+    }
+    .oauthButton {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 5px;
+      width: 250px;
+      height: 40px;
+      border-radius: 5px;
+      border: 2px solid var(--main-color);
+      background-color: var(--bg-color);
+      box-shadow: 4px 4px var(--main-color);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--font-color);
+      cursor: pointer;
+      transition: all 250ms;
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+      padding: 0 15px;
+    }
+    .oauthButton::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 0;
+      background-color: #212121;
+      z-index: -1;
+      box-shadow: 4px 8px 19px -3px rgba(0, 0, 0, 0.27);
+      transition: all 250ms;
+    }
+    .oauthButton:hover {
+      color: #e8e8e8;
+    }
+    .oauthButton:hover::before {
+      width: 100%;
+    }
+    .form > input {
+      width: 250px;
+      height: 40px;
+      border-radius: 5px;
+      border: 2px solid var(--main-color);
+      background-color: var(--bg-color);
+      box-shadow: 4px 4px var(--main-color);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--font-color);
+      padding: 5px 10px;
+      outline: none;
+    }
+    .icon {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+    .hero-bg {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      top: 0; left: 0;
+      z-index: 0;
+    }
+    .hero-card {
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 8px 32px rgba(60,60,120,0.18);
+      padding: 3rem 2.5rem 2.5rem 2.5rem;
+      text-align: center;
+      max-width: 420px;
+      width: 100%;
+      animation: fadeInUp 1s;
+      z-index: 1;
+    }
+    .avatar {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      margin-bottom: 1.2rem;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.18);
+      border: 4px solid #a5b4fc;
+      object-fit: cover;
     }
     h1 {
-      font-size: 2.5rem;
-      margin-bottom: 1rem;
+      font-size: 2.2rem;
+      color: #4f46e5;
+      margin-bottom: 0.5rem;
+      font-weight: 800;
+      letter-spacing: 1px;
     }
-    .section {
-      margin-bottom: 2rem;
+    .subtitle {
+      font-size: 1.1rem;
+      color: #6366f1;
+      margin-bottom: 0.8rem;
+    }
+    .intro {
+      color: #374151;
+      margin-bottom: 1.5rem;
+      font-size: 1rem;
+    }
+    .input-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #333;
+        font-weight: bold;
+        text-align: left;
+    }
+    .input {
+      width: calc(100% - 22px); 
+      padding: 10px; 
+      margin-top: 4px; 
+      margin-bottom: 16px; 
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    .input:focus {
+        border-color: #4f46e5;
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+    }
+    .btn {
+      background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%);
+      color: white;
+      padding: 10px 20px; 
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: background 0.2s, transform 0.2s;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.12);
+    }
+    .btn:hover {
+      background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%);
+      transform: translateY(-2px) scale(1.04);
+    }
+    .btn:active {
+        background: #3730a3;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(40px);}
+      to { opacity: 1; transform: translateY(0);}
+    }
+    /* 让后续内容不受全屏背景影响 */
+    #profile-section, #chat-section {
+      position: relative;
+      z-index: 2;
     }
     .card {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 1rem;
-      border-radius: 1rem;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 0 1rem rgba(0,0,0,0.3);
+      width: 100%;
+      max-width: 600px; 
+      margin: 1rem auto;
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* 简介部分的特定样式 */
+    #profile-section h2 {
+        color: #4f46e5; /* 与按钮颜色呼应 */
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 0.5rem;
+    }
+    #profile-section p {
+        margin-bottom: 0.8rem;
+        line-height: 1.6;
+        color: #374151;
+    }
+    #profile-section strong {
+        color: #1f2937;
+    }
+
+    #messages {
+        margin-top: 1.5rem;
+        max-height: 300px; /* 调整高度为简介腾出空间 */
+        overflow-y: auto; 
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem;
+        background-color: #f9fafb;
+        min-height: 50px; 
+    }
+
+    .message-item {
+      margin-bottom: 0.75rem; 
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      background-color: #ffffff; 
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      border-left: 4px solid #4f46e5; 
+    }
+    .message-user {
+        font-weight: bold;
+        color: #374151;
+    }
+    .message-timestamp {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-left: 0.5rem;
+    }
+    .message-content {
+        display: block; 
+        margin-top: 0.25rem;
+        color: #1f2937;
+        word-wrap: break-word; 
+    }
+
+    /* Loading Animation Styles */
+    .loader {
+      --ANIMATION-DELAY-MULTIPLIER: 70ms;
+      padding: 0;
+      margin: 20px auto; 
+      display: none; 
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      height: 50px; 
+    }
+    .loader span {
+      padding: 0;
+      margin: 0;
+      letter-spacing: -5rem;
+      animation-delay: 0s;
+      transform: translateY(4rem);
+      animation: hideAndSeek 1s alternate infinite cubic-bezier(0.86, 0, 0.07, 1);
+    }
+    .loader .l { animation-delay: calc(var(--ANIMATION-DELAY-MULTIPLIER) * 0); }
+    .loader .o { animation-delay: calc(var(--ANIMATION-DELAY-MULTIPLIER) * 1); }
+    .loader .a { animation-delay: calc(var(--ANIMATION-DELAY-MULTIPLIER) * 2); }
+    .loader .d { animation-delay: calc(var(--ANIMATION-DELAY-MULTIPLIER) * 3); }
+    .loader .ispan { animation-delay: calc(var(--ANIMATION-DELAY-MULTIPLIER) * 4); }
+    .loader .n { animation-delay: calc(var(--ANIMATION-DELAY-MULTIPLIER) * 5); }
+    .loader .g { animation-delay: calc(var(--ANIMATION-DELAY-MULTIPLIER) * 6); }
+    .letter { width: fit-content; height: 3rem; }
+    .ispan .letter { margin-inline: 5px; }
+    @keyframes hideAndSeek {
+      0% { transform: translateY(4rem); }
+      100% { transform: translateY(0rem); }
+    }
+
+    #particles-js {
+      position: absolute;
+      width: 100vw;
+      height: 100vh;
+      top: 0; left: 0;
+      z-index: 0;
+    }
+    .hero-card {
+      position: relative;
+      z-index: 2;
+    }
+    .hero-bg {
+      position: relative;
+      z-index: 1;
+    }
+    .pixel-bg {
+      position: fixed;
+      width: 100vw;
+      height: 100vh;
+      left: 0; top: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .pixel-board {
+      position: absolute;
+      opacity: 0.7;
+    }
+    .pixel-board-tl { left: 2vw; top: 2vh; transform: rotate(-10deg);}
+    .pixel-board-br { right: 2vw; bottom: 2vh; transform: rotate(12deg);}
+    .pixel-board-tr { right: 8vw; top: 8vh; transform: rotate(6deg);}
+    .pixel-board-bl { left: 8vw; bottom: 8vh; transform: rotate(-7deg);}
+    .chip-wall-bg, .chip-wall-grid, .chip-svg { display: none !important; }
+    #matrix-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      background: #000;
+      opacity: 1;
+    }
+    .center-bg, .form, #welcome-section, #profile-section, #chat-section {
+      position: relative;
+      z-index: 1;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>你好，我是张三</h1>
-
-    <div class="section card">
-      <h2>🎓 专业</h2>
-      <p>计算机科学与技术，本科</p>
-    </div>
-
-    <div class="section card">
-      <h2>📈 绩点</h2>
-      <p>GPA: 3.8 / 4.0</p>
-    </div>
-
-    <div class="section card">
-      <h2>🛠️ 技能</h2>
-      <ul>
-        <li>HTML/CSS/JavaScript</li>
-        <li>Python, Flask, Django</li>
-        <li>AI 应用、ChatGPT API</li>
-      </ul>
+  <canvas id="matrix-bg"></canvas>
+  <div class="center-bg">
+    <form action="javascript:void(0);" class="form" id="welcome-section">
+      <img src="https://api.dicebear.com/7.x/miniavs/svg?seed=王家睿" class="avatar" alt="头像" style="margin-bottom: 1rem;" />
+      <p style="margin-bottom:0;">
+        王家睿的个人简历
+        <span>欢迎来到我的专属空间</span>
+      </p>
+      <div class="intro" style="text-align:center; color:#374151; font-size:15px; margin-bottom:0;">
+        重庆理工大学 · 电子信息工程 · 热爱编程与创新<br>
+        <strong>学院：</strong>电气与电子工程学院<br>
+        <strong>绩点：</strong>3.2 / 5.0
+        <div style="margin-top:0.8rem; text-align:left;">
+          <strong>技能栈：</strong>
+          <ul style="margin:0.5rem 0 0 1.2rem; padding:0; color:#374151; font-size:14px; text-align:left;">
+            <li>使用 <strong>C语言</strong> 进行单片机编程 (如：STM32, 51系列等)</li>
+            <li>使用 <strong>Verilog HDL</strong> 进行 FPGA 设计与编程</li>
+            <li>使用 <strong>Java</strong> 进行后端开发或桌面应用编程</li>
+            <li>熟悉 <strong>HTML, CSS, JavaScript</strong> 进行网页开发</li>
+          </ul>
+        </div>
+      </div>
+      <div class="separator">
+        <div></div>
+        <span>OR</span>
+        <div></div>
+      </div>
+      <input type="text" placeholder="请输入你的昵称" id="nickname" name="nickname">
+      <button class="oauthButton" type="button" onclick="startChat()">
+        进入留言与查看简历
+        <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"></path><path d="m13 17 5-5-5-5"></path></svg>
+      </button>
+    </form>
+    <div id="leave-section" style="display:none;">
+      <div class="card" id="chat-section" style="display:none;">
+        <h2>💬 欢迎 <span id="welcome-name"></span>！请留言：</h2>
+        <label class="input-label" for="message-input">你的留言：</label>
+        <input class="input" placeholder="写点什么..." type="text" id="message-input" />
+        <button class="btn" onclick="submitMessage()">提交留言</button>
+        <div id="loading-animation" class="loader">
+          <span class="l">L</span><span class="o">O</span><span class="a">A</span><span class="d">D</span><span class="ispan">I</span><span class="n">N</span><span class="g">G</span>
+        </div>
+        <div class="mt-6" id="messages"></div>
+      </div>
     </div>
   </div>
-</body>
-</html>
+
+    <!-- 个人简介 -->
+    <div class="card" id="profile-section" style="display:none;">
+      <h2>关于我 - 王家睿</h2>
+      <p><strong>学校：</strong> 重庆理工大学</p>
+      <p><strong>学院：</strong> 电气与电子工程学院</p>
+      <p><strong>专业：</strong> 电子信息工程</p>
+      <p><strong>绩点：</strong> 3.2 / 5.0</p>
+      <h3 class="skills-title">技能栈</h3>
+      <ul class="skills-list">
+        <li>使用 <strong>C语言</strong> 进行单片机编程 (如：STM32, 51系列等)</li>
+        <li>使用 <strong>Verilog HDL</strong> 进行 FPGA (现场可编程门阵列) 设计与编程</li>
+        <li>使用 <strong>Java</strong> 进行后端开发或桌面应用编程</li>
+        <li>熟悉前端技术，包括 <strong>HTML, CSS, JavaScript</strong> (以及像D3.js这样的库) 进行网页开发</li>
+      </ul>
+      <p style="margin-top: 1.5rem;">欢迎与我交流！</p>
+    </div>
+  
+  </body>
+  </html>
+
+<script>
+  (function() {
+    const canvas = document.getElementById("matrix-bg");
+    const ctx = canvas.getContext("2d");
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+    const fontSize = 20;
+    const arr = Array(Math.ceil(width / fontSize)).fill(0);
+    const str = "01".split(""); // 只包含0和1
+
+    function rain() {
+      ctx.fillStyle = "rgba(0,0,0,0.08)";
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = "#0f0";
+      ctx.font = fontSize + "px monospace";
+      arr.forEach(function (value, index) {
+        ctx.fillText(str[Math.floor(Math.random() * str.length)], index * fontSize, value + fontSize);
+        arr[index] = value >= height || value > 8888 * Math.random() ? 0 : value + fontSize;
+      });
+    }
+
+    setInterval(rain, 80); // 80ms，速度更慢
+
+    window.addEventListener('resize', () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    });
+  })();
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var showBtn = document.getElementById('show-leave-btn');
+    var leaveSection = document.getElementById('leave-section');
+    if(showBtn && leaveSection) {
+      showBtn.addEventListener('click', function() {
+        showBtn.style.display = 'none';
+        leaveSection.style.display = 'block';
+      });
+    }
+  });
+</script>

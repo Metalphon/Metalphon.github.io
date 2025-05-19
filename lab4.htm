@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D3.js 地图可视化 - 重庆</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        #loading {
+            color: #666;
+            font-size: 14px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        #map-container {
+            width: 1200px;
+            height: 800px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            position: relative; 
+        }
+
+        .region {
+            stroke: #fff; 
+            stroke-width: 0.5px;
+            transition: fill 0.2s ease-in-out; 
+        }
+
+        /* No specific .region:hover here, JS handles it */
+
+        #tooltip {
+            position: absolute; 
+            background-color: rgba(40, 40, 40, 0.9);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            pointer-events: none; 
+            opacity: 0; 
+            transition: opacity 0.2s ease-in-out;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            max-width: 250px;
+            line-height: 1.5;
+        }
+        #tooltip h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 16px;
+            color: #ffdd57; 
+        }
+        #tooltip p {
+            margin-bottom: 5px;
+            margin-top: 0;
+        }
+        .status-message { 
+            font-size: 16px;
+            fill: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>我的家乡和我出生的地方</h1>
+    <div class="controls">
+        <div id="loading">加载中...</div>
+    </div>
+    <div id="map-container"></div>
+    <div id="tooltip"></div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+    <script>
+        const width = 1200;
+        const height = 800;
+        const defaultFillColor = "#a9a9a9";
+        const highlightFillColor = "#FFD700"; // 鼠标悬停高亮色
+        const nanaoHighlightColor = "#4CAF50"; // 南岸区特殊高亮色 (例如绿色)
+
+        const svg = d3.select("#map-container")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const g = svg.append("g");
+        const tooltip = d3.select("#tooltip");
+        const loadingDiv = document.getElementById('loading');
+
+        const projection = d3.geoMercator()
+            .translate([width / 2, height / 2]);
+
+        const pathGenerator = d3.geoPath().projection(projection);
+
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 20])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+        svg.call(zoom);
+        svg.call(zoom.transform, d3.zoomIdentity);
+
+        function clearMapContent() {
+            g.selectAll("*").remove();
+        }
+
+        function renderMap(geoData) {
+            clearMapContent();
+
+            if (!geoData || !geoData.features || geoData.features.length === 0) {
+                console.error("RenderMap: GeoJSON/TopoJSON 数据格式不正确或无特征!");
+                g.append("text")
+                   .attr("class", "status-message")
+                   .attr("x", width / 2)
+                   .attr("y", height / 2)
+                   .attr("text-anchor", "middle")
+                   .text("地图数据格式不正确或无有效区域");
+                return;
+            }
+            console.log('RenderMap: 处理区域数量:', geoData.features.length);
+
+            try {
+                console.warn("RenderMap: 由于之前的边界计算问题，现使用手动投影设置。");
+                projection.center([107.5, 29.5]) 
+                          .scale(6000)         
+                          .translate([width / 2, height / 2]);
+            } catch (e) {
+                console.error("RenderMap: 投影设置期间出错:", e);
+                g.append("text")
+                   .attr("class", "status-message")
+                   .attr("x", width / 2)
+                   .attr("y", height / 2)
+                   .attr("text-anchor", "middle")
+                   .text("地图投影设置失败。");
+                return; 
+            }
+            
+            console.log('RenderMap: 应用的投影比例:', projection.scale());
+            console.log('RenderMap: 应用的投影平移:', projection.translate());
+
+            const paths = g.selectAll("path.region")
+                .data(geoData.features)
+                .enter()
+                .append("path")
+                .attr("class", "region")
+                .attr("d", function(d, i) {
+                    const pathVal = pathGenerator(d);
+                    if (!pathVal) {
+                        console.warn(`RenderMap: 无法为区域生成路径 (索引 ${i}):`, d.properties ? d.properties.name : '未知区域');
+                    }
+                    return pathVal;
+                })
+                .attr("fill", function(d) { // 根据区域名称设置初始颜色
+                    if (d.properties && d.properties.name === "南岸区") {
+                        return nanaoHighlightColor;
+                    }
+                    return defaultFillColor;
+                })
+                .on("mouseover", function(event, d) {
+                    // 对于非南岸区的区域，鼠标悬停时高亮
+                    if (!(d.properties && d.properties.name === "南岸区")) {
+                        d3.select(this).attr("fill", highlightFillColor);
+                    }
+                    // 对于所有区域都显示tooltip
+                    tooltip.style("opacity", 1);
+                    const regionName = d.properties && d.properties.name ? d.properties.name : "未知区域";
+                    const info = areaInfo[regionName]; 
+
+                    let tooltipContent = `<h3>${regionName}</h3>`;
+                    if (info) {
+                        if (info["景点"] && info["景点"].length > 0) tooltipContent += `<p><strong>景点:</strong> ${info["景点"].join("、 ")}</p>`;
+                        else tooltipContent += "<p>暂无景点信息。</p>";
+                        if (info["小吃"] && info["小吃"].length > 0) tooltipContent += `<p><strong>小吃:</strong> ${info["小吃"].join("、 ")}</p>`;
+                        else tooltipContent += "<p>暂无小吃信息。</p>";
+                    } else {
+                        tooltipContent += "<p>暂无该区域详细信息。</p>";
+                    }
+                    
+                    tooltip.html(tooltipContent)
+                           .style("left", (event.pageX + 15) + "px")
+                           .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function(event, d) {
+                    // 对于非南岸区的区域，鼠标移开时恢复默认色
+                    if (!(d.properties && d.properties.name === "南岸区")) {
+                        d3.select(this).attr("fill", defaultFillColor);
+                    }
+                    // 对于所有区域都隐藏tooltip
+                    tooltip.style("opacity", 0);
+                });
+
+            console.log('RenderMap: 实际渲染的区域路径数量:', paths.size());
+            
+            if (geoData.features.length > 0 && paths.empty()) {
+                console.error('RenderMap: 没有区域被渲染。');
+                g.append("text")
+                   .attr("class", "status-message")
+                   .attr("x", width / 2)
+                   .attr("y", height / 2)
+                   .attr("text-anchor", "middle")
+                   .text("无法渲染地图路径。");
+            } else if (paths.size() > 0) {
+                svg.call(zoom.transform, d3.zoomIdentity); 
+            }
+        }
+
+        // 直接加载重庆市地图数据
+        loadingDiv.style.display = 'block';
+        d3.json("重庆市.geojson")
+            .then(data => {
+                console.log("加载的 GeoJSON:", data);
+                renderMap(data);
+            })
+            .catch(error => {
+                console.error('加载或渲染文件失败:', error);
+                clearMapContent();
+                g.append("text")
+                   .attr("class", "status-message")
+                   .attr("x", width / 2)
+                   .attr("y", height / 2)
+                   .attr("text-anchor", "middle")
+                   .text("加载地图数据失败，请检查文件。");
+            })
+            .finally(() => {
+                loadingDiv.style.display = 'none';
+            });
+
+        const areaInfo = { 
+            "渝中区": { "景点": ["解放碑", "洪崖洞", "朝天门广场", "长江索道", "人民大礼堂", "三峡博物馆"], "小吃": ["毛血旺", "山城小汤圆", "重庆小面", "酸辣粉", "抄手"] }, "江北区": { "景点": ["观音桥步行街", "北仓文创园", "江北嘴中央公园", "鸿恩寺森林公园"], "小吃": ["江北熊鸭子", "九园包子", "豆花饭", "鸡杂"] }, "南岸区": { "景点": ["南山一棵树观景台", "南滨路", "洋人街（部分保留）", "弹子石老街"], "小吃": ["泉水鸡", "南山辣子鸡", "烧鸡公"] }, "沙坪坝区": { "景点": ["磁器口古镇", "歌乐山森林公园", "白公馆", "渣滓洞", "三峡广场"], "小吃": ["磁器口麻花", "鸡汁锅贴", "毛凉粉", "古镇鸡杂"] }, "九龙坡区": { "景点": ["杨家坪步行街", "华岩寺", "重庆动物园", "黄桷坪涂鸦艺术街"], "小吃": ["梯坎豆花", "黄桷坪小吃", "邮亭鲫鱼"] }, "大渡口区": { "景点": ["中华美德公园", "大渡口古镇（建设中）", "义渡公园"], "小吃": ["鳝鱼面", "渣渣面"] }, "渝北区": { "景点": ["重庆园博园", "中央公园", "统景温泉风景区", "碧津公园"], "小吃": ["水煮鱼", "渝北水煮肉片", "腊排骨"] }, "巴南区": { "景点": ["巴文化电影公园", "丰盛古镇", "东温泉风景区", "樵坪山"], "小吃": ["丰盛豆干", "木洞豆花", "鱼洞鲢鱼"] }, "北碚区": { "景点": ["缙云山国家级自然保护区", "北温泉公园", "金刀峡", "偏岩古镇"], "小吃": ["缙云醉鸡", "北泉腊肉", "豆花鱼"] }, "万州区": { "景点": ["万州大瀑布", "青龙瀑布", "潭獐峡", "铁峰山国家森林公园"], "小吃": ["万州烤鱼", "万县格格", "杂酱面"] }, "涪陵区": { "景点": ["白鹤梁水下博物馆", "武陵山大裂谷", "816地下核工程"], "小吃": ["涪陵榨菜", "涪陵油醪糟", "乌江鱼"] }, "长寿区": { "景点": ["长寿湖风景名胜区", "菩提古镇", "长寿菩提山"], "小吃": ["长寿湖鱼面", "血豆腐", "柚子"] }, "江津区": { "景点": ["四面山风景区", "中山古镇", "爱情天梯", "聂荣臻元帅陈列馆"], "小吃": ["江津米花糖", "酸菜鱼"] }, "合川区": { "景点": ["钓鱼城古战场遗址", "涞滩古镇", "双龙湖"], "小吃": ["合川桃片", "合川肉片", "草街鱼"] }, "永川区": { "景点": ["茶山竹海国家森林公园", "乐和乐都主题公园", "松溉古镇"], "小吃": ["永川豆豉鱼", "星湖鱼"] }, "綦江区": { "景点": ["东溪古镇", "古剑山风景区", "老瀛山"], "小吃": ["北渡鱼", "綦江麻辣鸡"] }, "大足区": { "景点": ["大足石刻（宝顶山、北山等）", "龙水湖风景区"], "小吃": ["邮亭鲫鱼（大足也有）", "大足黑山羊"] }, "璧山区": { "景点": ["观音塘湿地公园", "青龙湖国家森林公园", "秀湖公园"], "小吃": ["璧山兔来凤鱼", "璧山凉粉"] }, "铜梁区": { "景点": ["安居古城", "巴岳山玄天湖旅游度假区", "铜梁龙景区"], "小吃": ["泡椒凤爪（铜梁有特色做法）", "铜梁葛粉"] }, "潼南区": { "景点": ["大佛寺景区（全国最大室内饰金大佛）", "双江古镇", "油菜花景区"], "小吃": ["潼南黄桃", "太安鱼"] }, "荣昌区": { "景点": ["万灵古镇（原路孔古镇）", "安陶小镇", "中国夏布小镇"], "小吃": ["荣昌卤鹅", "荣昌铺盖面", "黄凉粉"] }, "开州区": { "景点": ["汉丰湖国家湿地公园", "雪宝山国家森林公园", "刘伯承同志纪念馆"], "小吃": ["开县冰薄月饼", "开县头碗", "临江豆瓣鱼"] }, "梁平区": { "景点": ["双桂堂（西南佛教禅宗祖庭）", "百里竹海景区", "中华·梁平柚海"], "小吃": ["梁平张鸭子", "袁驿豆干", "柚子糖"] }, "武隆区": { "景点": ["天生三桥（世界自然遗产）", "仙女山国家森林公园", "芙蓉洞（世界自然遗产）"], "小吃": ["武隆羊角豆干", "碗碗羊肉", "蕨粑腊肉"] }, "城口县": { "景点": ["亢谷风景区", "九重山国家森林公园", "中国红军第二十六路军政治部旧址"], "小吃": ["城口老腊肉", "城口山地鸡", "苞谷粑"] }, "丰都县": { "景点": ["丰都名山（鬼城）", "雪玉洞国家地质公园", "南天湖旅游度假区"], "小吃": ["丰都麻辣鸡块", "鬼城抄手", "仙家豆腐乳"] }, "垫江县": { "景点": ["垫江牡丹生态旅游区", "恺之峰旅游区", "迎风湖国家湿地公园"], "小吃": ["垫江石磨豆花", "咂酒", "黄沙白柚"] }, "忠县": { "景点": ["石宝寨", "《烽烟三国》大型山水实景演出", "白公祠"], "小吃": ["忠州豆腐乳", "石宝蒸豆腐", "派森百橙汁"] }, "云阳县": { "景点": ["张飞庙", "龙缸国家地质公园", "三峡梯城"], "小吃": ["云阳包面", "黑芝麻糊", "桃片糕"] }, "奉节县": { "景点": ["白帝城·瞿塘峡景区", "小寨天坑", "天井峡地缝"], "小吃": ["奉节脐橙", "夔门烤鱼", "腊肉"] }, "巫山县": { "景点": ["巫山小三峡·小小三峡", "神女峰景区", "大昌古镇"], "小吃": ["巫山烤鱼", "翡翠凉粉", "党参炖鸡"] }, "巫溪县": { "景点": ["红池坝国家森林公园", "灵巫洞", "兰英大峡谷"], "小吃": ["巫溪烤鱼", "洋芋坨坨", "腊猪蹄"] }, "石柱土家族自治县": { "景点": ["黄水国家森林公园", "大风堡原始森林", "千野草场"], "小吃": ["石柱莼菜", "都粑（土家年糕）", "咂酒"] }, "秀山土家族苗族自治县": { "景点": ["洪安古镇（《边城》原型地）", "川河盖映山红生态旅游区"], "小吃": ["秀山腌菜", "米豆腐", "油粑粑"] }, "酉阳土家族苗族自治县": { "景点": ["酉阳桃花源国家森林公园", "龚滩古镇", "乌江画廊"], "小吃": ["酉阳贡米", "绿豆粉", "油茶汤"] }, "彭水苗族土家族自治县": { "景点": ["阿依河风景区", "蚩尤九黎城", "乌江画廊（彭水段）", "摩围山风景区"], "小吃": ["郁山三香（鸡豆花, 心肺米粉）", "晶丝苕粉", "苗家酸菜鱼"] }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>卡巴拉生命树可视化</title>
+    <style>
+        body {
+            font-family: "Palatino Linotype", "Book Antiqua", Palatino, serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f4e8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            color: #5a3921;
+            margin-bottom: 20px;
+            font-size: 2.4em;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fffaf0e0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #d4b483;
+            display: inline-block;
+        }
+        .file-input, .mode-controls {
+            margin-bottom: 10px;
+        }
+        .file-input label, #treeDataFile {
+            margin-right: 8px;
+        }
+
+        svg {
+            background-color: #fffaf0;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: block;
+            margin: 0 auto;
+            border: 1px solid #d4b483;
+            overflow: visible; /* 确保文本路径即使稍微超出SVG边界也能显示 (通常不是问题) */
+        }
+
+        .node-group {
+            cursor: move;
+            filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.2));
+        }
+        .node-group circle {
+             stroke: #fff;
+             stroke-width: 2px;
+        }
+
+        .node-group.hidden circle {
+            stroke-dasharray: 5,5;
+            stroke: #777;
+            fill-opacity: 0.85;
+        }
+
+        .link { /* 这是 <line> 元素的类 */
+            stroke-opacity: 0.8;
+            stroke-width: 2px;
+        }
+
+        .link.pillar {
+            stroke-width: 3.5px;
+        }
+
+        .link.hidden {
+            stroke-dasharray: 5,5;
+            stroke-width: 1.5px;
+        }
+
+        .link-text-element { /* 这是 <text> 元素的类, textPath 的父元素 */
+             /* 如果需要，可以在这里添加样式，但通常直接样式化 textPath */
+        }
+
+        .link-text { /* 这是 <textPath> 元素的类 */
+            font-family: "Segoe UI", Arial, sans-serif;
+            font-size: 10px; /* 初始大小，如果看不到可以尝试临时调大 */
+            font-weight: 500;
+            fill: #4a2c1a;     /* 确保与背景有对比 */
+            text-anchor: middle;
+            pointer-events: none;
+            paint-order: stroke;
+            stroke: #f8f4e8cc; /* 文本描边 "光晕" 效果，增加可读性 */
+            stroke-width: 3px;
+            stroke-linejoin: round;
+            dominant-baseline: central; /* 帮助垂直居中文本 */
+
+            /* --- 调试用样式 (如果文本不显示，取消注释这些行) --- */
+            /*
+            font-size: 20px !important;
+            fill: red !important;
+            stroke: blue !important;
+            stroke-width: 1px !important;
+            opacity: 1 !important;
+            */
+        }
+
+        .sephirah-name {
+            font-size: 15px;
+            font-weight: bold;
+            text-anchor: middle;
+            pointer-events: none;
+            font-family: Arial, sans-serif;
+            fill: #000000;
+            stroke: #FFFFFF;
+            stroke-width: 0.5px;
+            paint-order: stroke;
+        }
+
+        .symbol {
+            font-size: 28px;
+            text-anchor: middle;
+            pointer-events: none;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 12px;
+            background: rgba(30, 25, 20, 0.95);
+            color: #f0e6d2;
+            border-radius: 6px;
+            pointer-events: none;
+            font-size: 14px;
+            max-width: 300px;
+            line-height: 1.5;
+            border: 1px solid #665;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        .tooltip h3 {
+            margin: 0 0 8px 0;
+            color: #e0c070;
+            font-size: 16px;
+            border-bottom: 1px solid #776;
+            padding-bottom: 5px;
+        }
+
+        .tooltip p {
+            margin: 5px 0;
+        }
+
+        .tooltip .property {
+            color: #d4b483;
+            font-weight: bold;
+        }
+
+        .legend {
+            margin-top: 25px;
+            padding: 18px;
+            background-color: #fffaf0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: inline-block;
+            border: 1px solid #d4b483;
+            font-size: 15px;
+            color: #555;
+        }
+
+        .hebrew {
+            font-family: "Times New Roman", serif;
+            font-size: 18px;
+            direction: rtl;
+            unicode-bidi: bidi-override;
+        }
+
+        .action-button {
+            padding: 10px 15px;
+            background-color: #5a3921;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-family: inherit;
+            margin-left: 5px;
+        }
+
+        .action-button:hover {
+            background-color: #7a5941;
+        }
+
+        .mode-status {
+            margin-top: 10px;
+            font-style: italic;
+            color: #5a3921;
+            min-height: 1.2em;
+        }
+        #tree-container {
+            min-height: 100px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px dashed #ccc;
+            background-color: #fdfbf5;
+        }
+        #tree-container:not(:empty) {
+            border: none;
+            background-color: transparent;
+            display: block;
+        }
+        .placeholder-text {
+            color: #777;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body style="margin:0;padding:0;overflow:hidden;background:#fff;">
+  <div style="display:flex;width:100vw;height:100vh;">
+    <!-- 左侧简介 -->
+    <div style="flex:0 0 380px;max-width:420px;min-width:280px;background:#f8fafc;padding:48px 32px 32px 32px;box-shadow:2px 0 16px rgba(60,60,120,0.06);z-index:2;display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;">
+      <h2 style="color:#4f46e5;margin-bottom:1.5rem;">关于我 - 王家睿</h2>
+      <p><strong>学校：</strong> 重庆理工大学</p>
+      <p><strong>学院：</strong> 电气与电子工程学院</p>
+      <p><strong>专业：</strong> 电子信息工程</p>
+      <p><strong>绩点：</strong> 3.2 / 5.0</p>
+      <h3 style="margin-top:2rem;margin-bottom:1rem;">这是我的个人简历，包含我曾经做过的项目和我的个人经历，点击导航栏可以切换界面，右侧是本人比较喜欢的卡巴拉生命树，共11个质点，包含10个基础质点和一个隐藏质点，基础质点拥有守护天使，中间的路径由大阿卡那塔罗牌连接，对犹太教和基督教产生了深远的影响</h3>
+      
+      <p style="margin-top:1.5rem;">欢迎给我留言！</p>
+      
+      <div style="margin-top:2rem;width:100%;">
+        <h3 style="color:#4f46e5;margin-bottom:1rem;">联系方式</h3>
+        <p><strong>QQ：</strong> 2867697917</p>
+        <p><strong>微信：</strong> w1175208894</p>
+        <p><strong>电话：</strong> 17782112164</p>
+        <p><strong>Telegram：</strong> 丁从文</p>
+      </div>
+    </div>
+    <!-- 右侧SVG全屏 -->
+    <div style="flex:1;position:relative;width:0;height:100vh;">
+      <div id="tree-container" style="width:100%;height:100vh;position:absolute;top:0;left:0;"></div>
+    </div>
+  </div>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script>
+let treeData = { nodes: [], links: [] };
+let initialPositions = {};
+let simulation;
+const tooltip = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+function getSize() {
+  // 只取右侧区域宽高
+  const left = document.querySelector('div[style*="flex:0 0"]');
+  const w = window.innerWidth - (left ? left.offsetWidth : 0);
+  const h = window.innerHeight;
+  return {w, h};
+}
+function render() {
+  d3.select("#tree-container svg").remove();
+  const {w, h} = getSize();
+  const svg = d3.select("#tree-container")
+    .append("svg")
+    .attr("width", w)
+    .attr("height", h)
+    .attr("viewBox", `0 0 ${w} ${h}`)
+    .style("display","block")
+    .style("width","100%")
+    .style("height","100vh");
+  treeData.links.forEach((link, i) => { link.pathId = `link-path-${i}`; });
+  initialPositions = {};
+  treeData.nodes.forEach(node => {
+    let fx_val, fy_val;
+    switch(node.id) {
+      case 1:  fx_val = w / 2; fy_val = 80; break;
+      case 2:  fx_val = w / 2 - 150; fy_val = 180; break;
+      case 3:  fx_val = w / 2 + 150; fy_val = 180; break;
+      case 4:  fx_val = w / 2 - 220; fy_val = 320; break;
+      case 5:  fx_val = w / 2 + 220; fy_val = 320; break;
+      case 6:  fx_val = w / 2; fy_val = 400; break;
+      case 7:  fx_val = w / 2 - 150; fy_val = 520; break;
+      case 8:  fx_val = w / 2 + 150; fy_val = 520; break;
+      case 9:  fx_val = w / 2; fy_val = 640; break;
+      case 10: fx_val = w / 2; fy_val = 750; break;
+      case 11: fx_val = w / 2; fy_val = 240; break;
+      default:
+        fx_val = node.x_pos !== undefined ? node.x_pos : (node.x !== undefined ? node.x : w / 2);
+        fy_val = node.y_pos !== undefined ? node.y_pos : (node.y !== undefined ? node.y : h / 2);
+    }
+    initialPositions[node.id] = { x: fx_val, y: fy_val };
+    node.fx = initialPositions[node.id].x;
+    node.fy = initialPositions[node.id].y;
+  });
+  simulation = d3.forceSimulation(treeData.nodes)
+    .force("link", d3.forceLink(treeData.links).id(d => d.id).distance(110).strength(0.6))
+    .force("charge", d3.forceManyBody().strength(-1200))
+    .force("x", d3.forceX(w / 2).strength(0.18))
+    .force("y", d3.forceY(h / 2).strength(0.18))
+    .force("collision", d3.forceCollide().radius(50).strength(0.9));
+  const linkGroup = svg.append("g").attr("class", "links-group");
+  const linkPaths = linkGroup.selectAll("path.link")
+    .data(treeData.links, d => d.pathId)
+    .join("path")
+    .attr("class", d => `link ${d.type || ''} ${d.hidden ? 'hidden' : ''}`)
+    .attr("id", d => d.pathId)
+    .attr("fill", "none")
+    .attr("stroke", d => {
+      switch(d.type) {
+        case "pillar": return "#8B4513"; case "horizontal": return "#556B2F";
+        case "diagonal": return "#6B8E23"; case "hidden": return "#A9A9A9";
+        default: return "#999999";
+      }
+    })
+    .attr("stroke-width", d => d.type === "pillar" ? 3.5 : (d.hidden ? 1.5 : 2));
+  const linksWithTarot = treeData.links.filter(d => d.tarot && d.tarot.trim() !== '');
+  const linkTexts = linkGroup.selectAll("text.link-text-element")
+    .data(linksWithTarot, d => d.pathId)
+    .join("text")
+    .attr("class", "link-text-element")
+    .attr("dy", "-6")
+    .append("textPath")
+      .attr("class", "link-text")
+      .attr("href", d => `#${d.pathId}`)
+      .attr("startOffset", "50%")
+      .text(d => d.tarot);
+  const nodeGroup = svg.append("g")
+    .attr("class", "nodes")
+    .selectAll("g.node-group")
+    .data(treeData.nodes, d => d.id)
+    .join("g")
+      .attr("class", d => `node-group ${d.hidden ? "hidden" : ""}`)
+      .on("mouseover", showTooltip)
+      .on("mouseout", hideTooltip)
+      .call(d3.drag()
+        .on("start", dragstarted)
+        .on("drag", dragged)
+        .on("end", dragended));
+  nodeGroup.append("circle")
+    .attr("r", 40)
+    .attr("fill", d => d.color || "#DDDDDD")
+    .attr("stroke", d => d.hidden ? "#777" : (isColorDark(d.color || "#DDDDDD") ? "#FAFAFA" : "#222222"))
+    .attr("stroke-width", d => d.hidden ? 1.5 : 2.5);
+  nodeGroup.append("text")
+    .attr("class", "symbol")
+    .attr("dy", "0.1em")
+    .attr("text-anchor", "middle")
+    .attr("fill", d => d.textColor || (isColorDark(d.color || "#DDDDDD") ? "#FFFFFF" : "#000000"))
+    .text(d => d.symbol || "");
+  nodeGroup.append("text")
+    .attr("class", "sephirah-name")
+    .attr("dy", "1.8em")
+    .attr("text-anchor", "middle")
+    .text(d => d.name || "Unnamed");
+  simulation.on("tick", () => {
+    linkPaths.attr("d", d => `M ${d.source.x},${d.source.y} L ${d.target.x},${d.target.y}`);
+    nodeGroup.attr("transform", d => `translate(${d.x},${d.y})`);
+  });
+  simulation.alpha(0.8).restart();
+}
+fetch('nodes.json')
+  .then(res => res.json())
+  .then(data => { treeData = data; render(); })
+  .catch(err => { d3.select("#tree-container").html(`<p style='color:red;'>加载nodes.json失败: ${err.message}</p>`); });
+window.addEventListener('resize', () => { if(treeData.nodes&&treeData.nodes.length) render(); });
+function dragstarted(event, d) {
+  if (!event.active && simulation) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x;
+  d.fy = d.y;
+  tooltip.style("opacity", 0);
+}
+function dragged(event, d) {
+  d.fx = event.x;
+  d.fy = event.y;
+}
+function dragended(event, d) {
+  if (!event.active && simulation) simulation.alphaTarget(0);
+  setTimeout(() => {
+    if (initialPositions[d.id]) {
+      d.fx = initialPositions[d.id].x;
+      d.fy = initialPositions[d.id].y;
+      if (simulation) simulation.alpha(0.1).restart();
+    }
+  }, 100);
+}
+function showTooltip(event, d) {
+  tooltip.transition().duration(200).style("opacity", .95);
+  let colorDisplay = d.color_name || d.color || "无指定颜色";
+  if (!d.color_name && initialPositions[d.id]) {
+    switch(d.id) {
+      case 1: colorDisplay = "白色"; break; case 2: colorDisplay = "灰色"; break;
+      case 3: colorDisplay = "黑色"; break; case 4: colorDisplay = "蓝色"; break;
+      case 5: colorDisplay = "红色"; break; case 6: colorDisplay = "金色"; break;
+      case 7: colorDisplay = "绿色"; break; case 8: colorDisplay = "橙色"; break;
+      case 9: colorDisplay = "紫色"; break; case 10: colorDisplay = "多彩（橙黄、橄榄、红褐、黑）"; break;
+      case 11: colorDisplay = "暗灰色/无色 (Da'at)"; break;
+      default: colorDisplay = d.color || "无指定颜色";
+    }
+  }
+  tooltip.html(`
+    <h3>${d.name || '未知节点'} <span class="hebrew">${d.hebrew || ''}</span></h3>
+    <p>${d.description || '无描述信息.'}</p>
+    ${d.number ? `<p><span class="property">数字:</span> ${d.number}</p>` : ''}
+    <p><span class="property">颜色:</span> ${colorDisplay}</p>
+    ${d.gemstone ? `<p><span class="property">象征宝石:</span> ${d.gemstone}</p>` : ''}
+    ${d.planet ? `<p><span class="property">象征行星:</span> ${d.planet}</p>` : ''}
+    ${d.metal ? `<p><span class="property">金属:</span> ${d.metal}</p>` : ''}
+    ${d.image ? `<p><span class="property">代表人物形象:</span> ${d.image}</p>` : ''}
+    ${d.divineName ? `<p><span class="property">神名:</span> ${d.divineName}</p>` : ''}
+    ${d.archangel ? `<p><span class="property">守护天使:</span> ${d.archangel}</p>` : ''}
+    ${d.correspondence ? `<p><span class="property">对应:</span> ${d.correspondence}</p>` : ''}
+  `)
+    .style("left", (event.pageX + 15) + "px")
+    .style("top", (event.pageY - 25) + "px");
+}
+function hideTooltip() {
+  tooltip.transition().duration(500).style("opacity", 0);
+}
+function isColorDark(hexColor) {
+  if (!hexColor || typeof hexColor !== 'string' || hexColor.length < 3) return false;
+  let color = hexColor.startsWith('#') ? hexColor.substring(1) : hexColor;
+  if (color.length === 3) {
+    color = color.split('').map(char => char + char).join('');
+  }
+  if (color.length !== 6) return false;
+  const r = parseInt(color.substring(0, 2), 16);
+  const g = parseInt(color.substring(2, 4), 16);
+  const b = parseInt(color.substring(4, 6), 16);
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance < 128;
+}
+  </script>
+</body>
+</html>

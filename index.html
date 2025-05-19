@@ -31,18 +31,63 @@
       if (loadingAnimationElement) loadingAnimationElement.style.display = "none";
     }
 
+    function showLogin() {
+      document.getElementById("welcome-section").style.display = "block";
+      document.getElementById("profile-section").style.display = "none";
+      document.getElementById("leave-section").style.display = "none";
+      document.getElementById("matrix-bg").style.display = "block";
+      document.querySelector('.menu').style.display = 'none';
+    }
+
+    function initializeTreeIfNeeded() {
+      // 可选：如果iframe懒加载，可在此处动态加载
+    }
 
     window.startChat = () => {
+      // 1. 自动播放音乐
+      const audio = document.getElementById('navbar-audio');
+      const musicToggle = document.getElementById('music-toggle');
+      const navbarSpectrum = document.getElementById('navbar-spectrum');
+      if (audio) {
+        audio.play().then(() => {
+          if (musicToggle) musicToggle.checked = true;
+          if (navbarSpectrum) navbarSpectrum.style.display = 'block';
+          // 播放事件监听器会处理频谱初始化
+        }).catch(() => {
+          // 自动播放被阻止时，按钮和频谱不强制显示
+        });
+      }
+      // --- END ---
       const nameInput = document.getElementById("nickname").value.trim();
       if (nameInput) {
+        document.getElementById("personal-info-wrapper").style.display = "none";
+        document.getElementById("tree-of-life-embed").style.display = "block";
+        initializeTreeIfNeeded();
         currentUser = nameInput;
         document.getElementById("welcome-section").style.display = "none";
-        document.getElementById("profile-section").style.display = "block"; // 显示简介
-        document.getElementById("chat-section").style.display = "block";    // 显示聊天
-        document.getElementById("welcome-name").textContent = currentUser;
+        document.getElementById("profile-section").style.display = "block";
+        document.querySelectorAll('.page-section').forEach(sec => {
+          if (sec.id !== 'profile-section') {
+            sec.style.display = 'none';
+          }
+        });
+        const leaveSectionDiv = document.getElementById("leave-section");
+        if (leaveSectionDiv) {
+          leaveSectionDiv.style.display = "none";
+        }
+        const mainChatWelcomeName = document.querySelector('#chat-section.page-section #welcome-name');
+        if(mainChatWelcomeName) mainChatWelcomeName.textContent = currentUser;
+        if (!loadingAnimationElement) {
+            loadingAnimationElement = document.getElementById("loading-animation");
+        }
         loadMessages();
-        // 显示底部菜单栏
         document.getElementById("bottom-menu").style.display = "flex";
+        document.querySelectorAll('.menu .link').forEach(l => l.classList.remove('active'));
+        const navHome = document.getElementById('nav-home');
+        if (navHome) navHome.classList.add('active');
+        if (window.showMusicPlayer) {
+            window.showMusicPlayer();
+        }
       } else {
         alert("请输入你的昵称！");
       }
@@ -117,6 +162,26 @@
         loadingAnimationElement = document.getElementById("loading-animation");
         // 登录页时隐藏底部菜单
         document.getElementById("bottom-menu").style.display = "none";
+        // 切换内容区时显示底部菜单
+        const links = document.querySelectorAll('.menu .link');
+        links.forEach(link => {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            // 切换高亮
+            links.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+            // 切换内容区
+            const target = this.getAttribute('data-target');
+            document.querySelectorAll('.page-section').forEach(sec => sec.style.display = 'none');
+            if(target === 'chat-section') {
+              document.getElementById('chat-section').style.display = 'block';
+            } else {
+              document.getElementById(target).style.display = 'block';
+            }
+            // 显示底部菜单
+            document.getElementById("bottom-menu").style.display = "flex";
+          });
+        });
     });
 
   </script>
@@ -139,23 +204,20 @@
       align-items: center;
       justify-content: center;
     }
-    .form {
-      --background: #d3d3d3;
-      --input-focus: #2d8cf0;
-      --font-color: #323232;
-      --font-color-sub: #666;
-      --bg-color: #fff;
-      --main-color: #323232;
-      padding: 20px;
-      background: var(--background);
+    .form, .card {
+      width: 100vw !important;
+      max-width: 100vw !important;
+      min-height: 100vh !important;
+      margin: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      padding: 40px 0 !important;
       display: flex;
       flex-direction: column;
-      align-items: center; /* 居中 */
-      justify-content: center;
-      gap: 20px;
-      border-radius: 5px;
-      border: 2px solid var(--main-color);
-      box-shadow: 4px 4px var(--main-color);
+      align-items: center;
+      justify-content: flex-start;
+      box-sizing: border-box;
     }
     .form > p {
       color: var(--font-color);
@@ -284,10 +346,10 @@
     .subtitle {
       font-size: 1.1rem;
       color: #6366f1;
-      margin-bottom: 0.8rem;
+        margin-bottom: 0.8rem;
     }
     .intro {
-      color: #374151;
+        color: #374151;
       margin-bottom: 1.5rem;
       font-size: 1rem;
     }
@@ -298,15 +360,9 @@
         font-weight: bold;
         text-align: left;
     }
-    .input {
-      width: calc(100% - 22px); 
-      padding: 10px; 
-      margin-top: 4px; 
-      margin-bottom: 16px; 
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      font-size: 1rem;
-      box-sizing: border-box;
+    .input, #messages {
+      width: 90vw !important;
+      max-width: 900px;
     }
     .input:focus {
         border-color: #4f46e5;
@@ -338,11 +394,29 @@
     }
     /* 让后续内容不受全屏背景影响 */
     #profile-section, #chat-section {
-      position: relative;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(120deg, #a5b4fc 0%, #b39ddb 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
       z-index: 2;
+      padding: 40px 0;
+      box-sizing: border-box;
+    }
+    #chat-section {
+      background: rgba(255,255,255,0.98);
+    }
+    #profile-section > *, #chat-section > * {
+      width: 90vw;
+      max-width: 900px;
     }
     .card {
-      width: 100%; 
+      width: 100%;
+      max-width: 600px; 
       margin: 1rem auto;
       background: white;
       border-radius: 12px;
@@ -351,15 +425,6 @@
     }
     
     /* 简介部分的特定样式 */
-    #profile-section {
-      position: fixed;
-      top: 0%;
-      left: 0%;
-      transform: translate(-50%, -50%);
-      max-height: 80vh;
-      overflow-y: auto;
-     
-    }
     #profile-section h2 {
         color: #4f46e5; /* 与按钮颜色呼应 */
         margin-bottom: 1.5rem;
@@ -387,12 +452,15 @@
     }
 
     .message-item {
-      margin-bottom: 0.75rem; 
+      margin-bottom: 1.5rem;
       padding: 0.75rem;
       border-radius: 0.5rem;
       background-color: #ffffff; 
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       border-left: 4px solid #4f46e5; 
+      width: 95%;
+      margin-left: auto;
+      margin-right: auto;
     }
     .message-user {
         font-weight: bold;
@@ -424,8 +492,8 @@
     }
     .loader span {
       padding: 0;
-      margin: 0;
-      letter-spacing: -5rem;
+      margin: 0 2px; /* 增加字母间距 */
+      letter-spacing: 0; /* 修改为0，不再挤在一起 */
       animation-delay: 0s;
       transform: translateY(4rem);
       animation: hideAndSeek 1s alternate infinite cubic-bezier(0.86, 0, 0.07, 1);
@@ -490,21 +558,50 @@
       position: relative;
       z-index: 1;
     }
-    /* 固定底部菜单样式 */
-    .menu {
-      padding: 0.5rem;
-      background-color: rgba(255,255,255,0.7);
-      backdrop-filter: blur(8px);
+    /* 弹窗样式（全屏覆盖） */
+    #chat-section {
       position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 100;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(255,255,255,0.98);
+      border-radius: 0;
+      box-shadow: none;
+      z-index: 1000;
       display: none;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       justify-content: center;
-      border-radius: 15px 15px 0 0;
+    }
+    #profile-section {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #fff !important;
+      border-radius: 16px;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+    .menu {
+      position: fixed;
+      left: 50%;
+      bottom: 30px;
+      transform: translateX(-50%);
+      padding: 0.5rem 1.5rem;
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      border-radius: 15px;
       box-shadow: 0 10px 25px 0 rgba(0,0,0,0.075);
-      gap: 1rem;
+      z-index: 2000;
     }
     .link {
       display: inline-flex;
@@ -517,16 +614,10 @@
       z-index: 1;
       overflow: hidden;
       transform-origin: center left;
-      transition: width 0.2s ease-in, background 0.2s, opacity 0.2s;
+      transition: width 0.2s ease-in;
       text-decoration: none;
       color: inherit;
-      background: none;
-      opacity: 0.7;
-    }
-    .link.active {
-      opacity: 1;
-      background: rgba(255,255,255,0.95);
-      box-shadow: 0 2px 8px rgba(99,102,241,0.12);
+      background: transparent;
     }
     .link:before {
       position: absolute;
@@ -549,7 +640,9 @@
       width: 130px;
     }
     .link:hover:before,
-    .link:focus:before {
+    .link:focus:before,
+    .link:hover .link-title,
+    .link:focus .link-title {
       transform: translateX(0);
       opacity: 1;
     }
@@ -561,6 +654,10 @@
       left: 18px;
       position: absolute;
     }
+    .link-icon svg {
+      width: 28px;
+      height: 28px;
+    }
     .link-title {
       transform: translateX(100%);
       transition: transform 0.2s ease-in;
@@ -569,56 +666,187 @@
       text-align: center;
       text-indent: 28px;
       width: 100%;
-      opacity: 0;
     }
-    .link:hover .link-title,
-    .link:focus .link-title {
-      transform: translateX(0);
-      opacity: 1;
+    /* 恢复登录界面.form卡片样式 */
+    .form {
+      padding: 24px 18px;
+      background: #ede9fe !important;
+      border-radius: 22px;
+      border: 1.5px solid #e0e7ef;
+      box-shadow: 0 6px 32px 0 rgba(99,102,241,0.06), 0 1.5px 0 #e0e7ef inset;
+      max-width: 320px;
+      width: 100%;
+      margin: 60px auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      transition: box-shadow 0.2s, border 0.2s;
     }
-    html, body {
+    .form:focus-within, .form:hover {
+      box-shadow: 0 8px 40px 0 rgba(99,102,241,0.10), 0 2px 0 #b3bcf5 inset;
+      border-color: #b3bcf5;
+    }
+    #profile-section, #chat-section {
+      position: fixed;
+      top: 0; left: 0;
       width: 100vw;
       height: 100vh;
-      margin: 0;
-      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      z-index: 2;
+      padding: 40px 0;
+      box-sizing: border-box;
+    }
+    #profile-section {
+      background: #fff !important;
+      border-radius: 16px;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.08);
+    }
+    #chat-section {
+      background: rgba(255,255,255,0.98);
+    }
+    #profile-section > *, #chat-section > * {
+      width: 90vw;
+      max-width: 900px;
+    }
+    /* From Uiverse.io by Praashoo7 */
+    .input {
+      border: none;
+      outline: none;
+      border-radius: 15px;
+      padding: 1em;
+      background-color: #ccc;
+      box-shadow: inset 2px 5px 10px rgba(0,0,0,0.3);
+      transition: 300ms ease-in-out;
+    }
+    .input:focus {
+      background-color: white;
+      transform: scale(1.05);
+      box-shadow: 13px 13px 100px #969696,
+                 -13px -13px 100px #ffffff;
+    }
+    .chat-flex {
+      display: flex;
+      width: 90vw;
+      max-width: 1100px;
+      height: 70vh;
+      min-height: 400px;
+      margin: 0 auto;
+      background: transparent;
+      border-radius: 16px;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.04);
       overflow: hidden;
     }
-    .main-container {
-      width: 900px;
-      height: 600px;
-      max-width: 95vw;
-      max-height: 80vh;
-      margin: auto;
-      position: relative;
-      background: none;
-      overflow: hidden;
+    .chat-input-area, .chat-messages-area {
+      flex: 1 1 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: #f8fafc;
+      padding: 2.5rem 2rem;
+      box-sizing: border-box;
+    }
+    .chat-input-area {
+      border-right: 1.5px solid #e5e7eb;
+      align-items: center;
+    }
+    .chat-input-area h2,
+    .chat-input-area label,
+    .chat-input-area input,
+    .chat-input-area button,
+    .chat-input-area .loader {
+      width: 100%;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .chat-messages-area {
+      flex: 1 1 0;
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      overflow-y: auto;
+      align-items: flex-start;
+      justify-content: flex-start;
+      padding: 0 0.5rem 0 0.5rem;
+    }
+    #messages {
+      width: 100%;
+      max-width: 100%;
+      height: 100%;
+      min-height: 100%;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+      margin: 0;
+      flex: 1 1 0;
+      display: flex;
+      flex-direction: column;
+    }
+    /* 美化滚动条 */
+    .chat-messages-area::-webkit-scrollbar, #messages::-webkit-scrollbar {
+      width: 8px;
+      background: #f3f4f6;
+      border-radius: 8px;
+    }
+    .chat-messages-area::-webkit-scrollbar-thumb, #messages::-webkit-scrollbar-thumb {
+      background: #b3bcf5;
+      border-radius: 8px;
+    }
+    /* 让message-item宽度自适应 */
+    .message-item {
+      width: 95%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    /* 修改留言界面为全屏页面风格，区域更大，内容居中，宽度放宽 */
+    #chat-section.page-section {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(255,255,255,0.98);
       display: flex;
       align-items: center;
       justify-content: center;
-    }
-    .page-section {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-      display: none;
-    }
-    .page-section[style*="display:block"] {
-      display: block;
-    }
-    .card {
-      width: 100%;
-      max-width: 800px;
-      margin: 1rem auto;
-      background: white;
-      border-radius: 12px;
-      padding: 2rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      z-index: 2;
+      padding: 0;
+      box-sizing: border-box;
+      border-radius: 0;
+      box-shadow: none;
       overflow: auto;
-      max-height: 90%;
     }
-    /* 插入 .container-card-charts 相关样式 */
+    #chat-section.page-section > .chat-flex {
+      max-width: 1400px;
+      width: 96vw;
+      height: 80vh;
+      min-height: 500px;
+      border-radius: 18px;
+      box-shadow: 0 8px 32px rgba(60,60,120,0.10);
+      background: rgba(255,255,255,0.98);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      justify-content: center;
+      padding: 0;
+    }
+    /* 不应用.page-section > div的通用内容区样式到.chat-flex */
+    #chat-section.page-section > div:not(.chat-flex) {
+      background: none;
+      box-shadow: none;
+      padding: 0;
+      min-height: 0;
+    }
     .container-card-charts {
       position: relative;
       width: 300px;
@@ -775,10 +1003,491 @@
         opacity: 0.8;
       }
     }
+    /* 让所有 .page-section 区块全屏独立，内容居中，宽度自适应 */
+    .page-section {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(120deg, #a5b4fc 0%, #b39ddb 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      padding: 0;
+      box-sizing: border-box;
+      border-radius: 0;
+      box-shadow: none;
+      overflow: auto;
+    }
+    /* 让内容区块宽度适中且居中美观 */
+    .page-section > div {
+      max-width: 1200px;
+      width: 90vw;
+      margin: 0 auto;
+      background: rgba(255,255,255,0.98);
+      border-radius: 18px;
+      box-shadow: 0 8px 32px rgba(60,60,120,0.10);
+      padding: 40px 32px;
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+    /* 针对 repo-section 内部卡片容器特殊处理，避免重复包裹 */
+    #repo-section > div {
+      background: none;
+      box-shadow: none;
+      padding: 0;
+      min-height: 0;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      width: 56px;
+      height: 56px;
+      position: fixed;
+      left: unset;
+      right: 20px;
+      bottom: 30px;
+      border-radius: 12px; /* 方形圆角 */
+      background: #fff;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2100;
+    }
+    .play-btn {
+      position: absolute;
+      appearance: none;
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      background: conic-gradient(#ff6347, #ff6347);
+      cursor: pointer;
+      outline: none;
+    }
+   
+    .play-btn:checked {
+      animation: borderAnimate 700ms ease-in-out 1;
+      animation-fill-mode: forwards;
+    }
+    @keyframes borderAnimate {
+      0% {
+        transform: rotate(0);
+        background: conic-gradient(#ff6347, transparent 20%);
+      }
+      80% {
+        background: conic-gradient(#ff6347, transparent 90%);
+      }
+      100% {
+        transform: rotate(360deg);
+        background: conic-gradient(#ff6347, #ff6347);
+      }
+    }
+    .play-icon {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      left: 60%;
+      top: 50%;
+      background-color: #ff6347;
+      transform: translate(-60%, -50%) rotate(90deg);
+      clip-path: polygon(50% 15%, 0% 100%, 100% 100%);
+      transition: all 400ms ease-in-out;
+      cursor: pointer;
+    }
+    .play-btn:checked + .play-icon {
+      clip-path: polygon(0 100%, 0% 100%, 100% 100%);
+    }
+    .pause-icon {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+    }
+    .pause-icon::before {
+      content: "";
+      position: absolute;
+      width: 0%;
+      height: 100%;
+      background-color: #ff6347;
+      left: 0;
+    }
+    .pause-icon::after {
+      content: "";
+      position: absolute;
+      width: 0;
+      height: 100%;
+      background-color: #ff6347;
+      right: 0;
+    }
+    .play-btn:checked ~ .pause-icon::before {
+      animation: reveal 300ms ease-in-out 350ms 1;
+      animation-fill-mode: forwards;
+    }
+    .play-btn:checked ~ .pause-icon::after {
+      animation: reveal 300ms ease-in-out 600ms 1;
+      animation-fill-mode: forwards;
+    }
+    @keyframes reveal {
+      0% {
+        width: 0;
+      }
+      100% {
+        width: 35%;
+      }
+    }
+    #music-visualizer-btn {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 100px;
+      height: 100px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .music-btn-core {
+      width: 60px;
+      height: 60px;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: #000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      border: 2px solid #ff6347;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .play-btn {
+      position: absolute;
+      appearance: none;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      cursor: pointer;
+      outline: none;
+      z-index: 3;
+      opacity: 0;
+    }
+    .play-icon {
+      width: 20px;
+      height: 20px;
+      background-color: #ff6347;
+      transform: rotate(90deg);
+      clip-path: polygon(50% 15%, 0% 100%, 100% 100%);
+      transition: all 400ms ease-in-out;
+      z-index: 1;
+    }
+    .pause-icon {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 1;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .pause-icon::before,
+    .pause-icon::after {
+      content: "";
+      display: block;
+      width: 6px;
+      height: 100%;
+      background-color: #ff6347;
+      border-radius: 1px;
+    }
+    .play-btn:checked + .play-icon {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .play-btn:checked ~ .pause-icon {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* 方形播放按钮样式，适配导航栏 */
+    .navbar-play-btn {
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+      margin-left: 12px;
+      position: relative;
+    }
+    .navbar-play-btn .play-btn {
+      position: absolute;
+      appearance: none;
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      background: conic-gradient(#ff6347, #ff6347);
+      cursor: pointer;
+      outline: none;
+    }
+    .navbar-play-btn .play-btn::before {
+      content: "";
+      position: absolute;
+      width: 93%;
+      height: 93%;
+      background-color: #000;
+      border-radius: 8px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .navbar-play-btn .play-btn:checked {
+      animation: borderAnimate 700ms ease-in-out 1;
+      animation-fill-mode: forwards;
+    }
+    @keyframes borderAnimate {
+      0% {
+        transform: rotate(0);
+        background: conic-gradient(#ff6347, transparent 20%);
+      }
+      80% {
+        background: conic-gradient(#ff6347, transparent 90%);
+      }
+      100% {
+        transform: rotate(360deg);
+        background: conic-gradient(#ff6347, #ff6347);
+      }
+    }
+    .navbar-play-btn .play-icon {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      left: 60%;
+      top: 50%;
+      background-color: #ff6347;
+      transform: translate(-60%, -50%) rotate(90deg);
+      clip-path: polygon(50% 15%, 0% 100%, 100% 100%);
+      transition: all 400ms ease-in-out;
+      cursor: pointer;
+    }
+    .navbar-play-btn .play-btn:checked + .play-icon {
+      clip-path: polygon(0 100%, 0% 100%, 100% 100%);
+    }
+    .navbar-play-btn .pause-icon {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+    }
+    .navbar-play-btn .pause-icon::before {
+      content: "";
+      position: absolute;
+      width: 0%;
+      height: 100%;
+      background-color: #ff6347;
+      left: 0;
+    }
+    .navbar-play-btn .pause-icon::after {
+      content: "";
+      position: absolute;
+      width: 0;
+      height: 100%;
+      background-color: #ff6347;
+      right: 0;
+    }
+    .navbar-play-btn .play-btn:checked ~ .pause-icon::before {
+      animation: reveal 300ms ease-in-out 350ms 1;
+      animation-fill-mode: forwards;
+    }
+    .navbar-play-btn .play-btn:checked ~ .pause-icon::after {
+      animation: reveal 300ms ease-in-out 600ms 1;
+      animation-fill-mode: forwards;
+    }
+    @keyframes reveal {
+      0% {
+        width: 0;
+      }
+      100% {
+        width: 35%;
+      }
+    }
+    /* 导航栏上方频谱条样式（修正版） */
+    #navbar-spectrum {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 100px;
+      z-index: 1999;
+      width: 380px;
+      max-width: 85vw;
+      height: 50px;
+      pointer-events: none;
+      display: none;
+      background: transparent;
+      opacity: 0.8;
+    }
+    /* 放大登录界面整体、输入框、按钮和文字 */
+    #welcome-section.form {
+      max-width: 480px !important;
+      width: 100% !important;
+      padding: 48px 0 !important;
+    }
+    #welcome-section .avatar {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 2rem !important;
+    }
+    #welcome-section p {
+      font-size: 2.2rem !important;
+      margin-bottom: 1.2rem !important;
+    }
+    #welcome-section p > span {
+      font-size: 1.3rem !important;
+    }
+    #welcome-section .intro {
+      font-size: 1.25rem !important;
+      margin-bottom: 1.5rem !important;
+    }
+    #welcome-section input[type="text"] {
+      width: 340px !important;
+      height: 54px !important;
+      font-size: 1.2rem !important;
+      padding: 10px 18px !important;
+      border-radius: 12px !important;
+    }
+    #welcome-section .oauthButton {
+      width: 340px !important;
+      height: 54px !important;
+      font-size: 1.25rem !important;
+      border-radius: 12px !important;
+      margin-top: 1.2rem !important;
+    }
+    #archive-section.page-section {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(120deg, #a5b4fc 0%, #b39ddb 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      padding: 0;
+      box-sizing: border-box;
+      border-radius: 0;
+      box-shadow: none;
+      overflow: auto;
+    }
+    #archive-section .center-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+    #archive-section .center-content > div {
+      max-width: 1000px !important;
+      width: 100vw !important;
+      min-height: 500px !important;
+    }
+    #archive-section.page-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: 60px;
+      padding-bottom: 60px;
+    }
+    #archive-section .center-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      width: 90vw;
+      max-width: 1400px;
+    }
+    #archive-section .charts-container {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 40px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 100%;
+      box-sizing: border-box;
+    }
+    #archive-section .charts-container > div {
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    #archive-section .charts-container > div > div {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    #archive-section .charts-container svg {
+      display: block;
+      margin: 0 auto;
+      max-width: 100%;
+      height: auto;
+    }
+    /* GitHub按钮样式 */
+    .btn-github {
+      text-decoration: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      border: none;
+      transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+      border-radius: 100px;
+      font-weight: 800;
+      padding: 0.75rem 1rem;
+      font-size: 0.825rem;
+      line-height: 1rem;
+      background-color: rgba(0, 0, 0, 0.4);
+      box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+      color: #fff !important;
+    }
+    .btn-github:hover {
+      box-shadow:
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+        inset 0 0 0 1px rgba(252, 232, 3, 0.08);
+      color: #fce803 !important;
+      transform: translate(0, -0.25rem);
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    .btn-github svg {
+      vertical-align: middle;
+    }
   </style>
 </head>
 <body>
-  <canvas id="matrix-bg"></canvas>
   <div class="center-bg">
     <form action="javascript:void(0);" class="form" id="welcome-section">
       <img src="https://api.dicebear.com/7.x/miniavs/svg?seed=王家睿" class="avatar" alt="头像" style="margin-bottom: 1rem;" />
@@ -787,23 +1496,7 @@
         <span>欢迎来到我的专属空间</span>
       </p>
       <div class="intro" style="text-align:center; color:#374151; font-size:15px; margin-bottom:0;">
-        重庆理工大学 · 电子信息工程 · 热爱编程与创新<br>
-        <strong>学院：</strong>电气与电子工程学院<br>
-        <strong>绩点：</strong>3.2 / 5.0
-        <div style="margin-top:0.8rem; text-align:left;">
-          <strong>技能栈：</strong>
-          <ul style="margin:0.5rem 0 0 1.2rem; padding:0; color:#374151; font-size:14px; text-align:left;">
-            <li>使用 <strong>C语言</strong> 进行单片机编程 (如：STM32, ti,合泰系列等)</li>
-            <li>使用 <strong>Verilog HDL</strong> 进行 FPGA 设计与编程</li>
-            <li>使用 <strong>Python</strong> 进行上位机控制或桌面应用编程</li>
-            <li>熟悉 <strong>HTML, CSS, JavaScript</strong> 进行网页开发</li>
-          </ul>
-        </div>
-      </div>
-      <div class="separator">
-        <div></div>
-        <span>OR</span>
-        <div></div>
+        重庆理工大学 · 电子信息工程 · 热爱编程与创新
       </div>
       <input type="text" placeholder="请输入你的昵称" id="nickname" name="nickname">
       <button class="oauthButton" type="button" onclick="startChat()">
@@ -811,119 +1504,42 @@
         <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"></path><path d="m13 17 5-5-5-5"></path></svg>
       </button>
     </form>
-    <div id="leave-section" style="display:none;">
-      <div class="card" id="chat-section" style="display:none;">
-        <h2>💬 欢迎 <span id="welcome-name"></span>！请留言：</h2>
-        <label class="input-label" for="message-input">你的留言：</label>
-        <input class="input" placeholder="写点什么..." type="text" id="message-input" />
-        <button class="btn" onclick="submitMessage()">提交留言</button>
-        <div id="loading-animation" class="loader">
-          <span class="l">L</span><span class="o">O</span><span class="a">A</span><span class="d">D</span><span class="ispan">I</span><span class="n">N</span><span class="g">G</span>
-        </div>
-        <div class="mt-6" id="messages"></div>
-      </div>
+    <div id="leave-section" style="display:none;"></div>
     </div>
-  </div>
-
+  
     <!-- 个人简介 -->
-    <div class="card" id="profile-section" style="display:none;">
+  <div id="profile-section" style="display:none;">
+    <div id="personal-info-wrapper">
       <h2>关于我 - 王家睿</h2>
       <p><strong>学校：</strong> 重庆理工大学</p>
       <p><strong>学院：</strong> 电气与电子工程学院</p>
       <p><strong>专业：</strong> 电子信息工程</p>
       <p><strong>绩点：</strong> 3.2 / 5.0</p>
-      <h3 class="skills-title">技能栈</h3>
-      <ul class="skills-list">
-        <li>使用 <strong>C语言</strong> 进行单片机编程 (如：STM32, ti,合泰系列等)</li>
-        <li>使用 <strong>Verilog HDL</strong> 进行 FPGA (现场可编程门阵列) 设计与编程</li>
-        <li>使用 <strong>Python</strong> 进行上位机控制或桌面应用编程</li>
-        <li>熟悉前端技术，包括 <strong>HTML, CSS, JavaScript</strong> (以及像D3.js这样的库) 进行网页开发</li>
-      </ul>
-      <p style="margin-top: 1.5rem;">欢迎与我交流！</p>
+      <hr>
     </div>
-  
-  <!-- 独立内容区 -->
-  <div class="main-container">
-    <div id="home-section" class="page-section" style="display:block;">
-      <div class="card"><h2>首页</h2><p>欢迎来到首页！这里是总体介绍。</p></div>
-    </div>
-    <div id="games-section" class="page-section" style="display:none;">
-      <div class="card" style="display: flex; justify-content: center; align-items: center; height: 100%; background: none; box-shadow: none;">
-        <div class="container-card-charts">
-          <div class="card-charts">
-            <div class="tags-card">
-              <label class="radio">
-                <input type="radio" name="radio" />
-                <span class="name">1H</span>
-              </label>
-              <label class="radio">
-                <input type="radio" name="radio" />
-                <span class="name">1D</span>
-              </label>
-              <label class="radio">
-                <input type="radio" name="radio" checked="" />
-                <span class="name">1W</span>
-              </label>
-              <label class="radio">
-                <input type="radio" name="radio" />
-                <span class="name">1M</span>
-              </label>
-              <label class="radio">
-                <input type="radio" name="radio" />
-                <span class="name">ALL</span>
-              </label>
-            </div>
-            <div class="main-texts">
-              <p class="title">BTC 70K</p>
-              <p class="change">-2.92%</p>
-            </div>
-            <div class="charts-lines">
-              <i class="icon-week">
-                <svg viewBox="0 0 469 262" fill="none">
-                  <path d="M2.5 261L6.42112 216.887C6.4726 216.308 6.69121 215.757 7.05039 215.3L11.359 209.816C11.7743 209.287 12 208.635 12 207.962V202.987C12 202.346 12.2055 201.722 12.5863 201.206L27.2479 181.342C27.4151 181.115 27.5496 180.866 27.6474 180.602L31.7748 169.458C32.2107 168.281 33.333 167.5 34.588 167.5H35.5756C37.8226 167.5 39.292 169.89 38.4086 171.956C36.1137 177.322 34.0615 183.976 36.5 185.5C39.338 187.274 43.1722 202.55 45.2823 212.494C45.6701 214.321 47.5992 215.378 49.3403 214.701L53.6761 213.015C54.5141 212.689 55.1618 212.004 55.4407 211.15L78.3519 140.954C78.45 140.653 78.5 140.339 78.5 140.023V114.385C78.5 114.129 78.5327 113.875 78.5974 113.627L95.9026 47.3728C95.9673 47.1253 96 46.8705 96 46.6147V27L102.483 117.259C102.494 117.42 102.519 117.578 102.555 117.735L108.878 144.485C108.959 144.826 109.098 145.15 109.291 145.442L117.591 158.073C118.871 160.022 121.788 159.829 122.8 157.729L131.594 139.49C132.629 137.343 135.632 137.202 136.864 139.241L147.401 156.681C148.059 157.771 149.334 158.326 150.581 158.067L170.757 153.863C171.832 153.639 172.942 154.02 173.654 154.856L187.803 171.481C189.536 173.517 192.865 172.441 193.078 169.776L199.81 85.6203C200.037 82.7832 203.718 81.8273 205.297 84.1955L227.5 117.5L230.279 122.299C231.461 124.342 234.43 124.282 235.53 122.194L237.842 117.801C237.947 117.601 238.074 117.414 238.222 117.242L261.286 90.4123C262.029 89.5473 263.199 89.1789 264.304 89.4616L280.695 93.6546C282.448 94.1029 284.196 92.9099 284.416 91.1144L294.882 6.02633C295.16 3.76377 297.761 2.62601 299.611 3.95714L322.945 20.7414C323.618 21.2254 324.061 21.9662 324.168 22.7881L335.097 106.419C335.317 108.103 336.89 109.268 338.565 108.989L365.007 104.582C366.835 104.277 368.5 105.688 368.5 107.541V116.792C368.5 117.258 368.608 117.717 368.817 118.133L385.671 151.842C386.179 152.858 387.218 153.5 388.354 153.5H393.231C393.736 153.5 394.232 153.373 394.674 153.13L406.191 146.814C407.884 145.886 409.999 146.775 410.522 148.633L418.132 175.692C418.366 176.523 418.23 177.415 417.76 178.139L412.903 185.611C412.341 186.476 412.262 187.568 412.694 188.504L426.196 217.757C426.686 218.82 427.749 219.5 428.919 219.5H439.146C440.282 219.5 441.321 220.142 441.829 221.158L454.169 245.839C454.387 246.273 454.706 246.648 455.1 246.932L467 255.5" stroke="url(#paint0_linear_230_5)" stroke-width="5" stroke-dasharray="1500"></path>
-                  <defs>
-                    <linearGradient id="paint0_linear_230_5" x1="3" y1="176" x2="463" y2="189" gradientUnits="userSpaceOnUse">
-                      <stop stop-color="#89FB73" stop-opacity="0.05"></stop>
-                      <stop offset="0.5" stop-color="white"></stop>
-                      <stop offset="1" stop-color="#A62727" stop-opacity="0.1"></stop>
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </i>
-              <i class="icon-month">
-                <svg fill="none" viewBox="0 0 472 170">
-                  <path d="M2.5 167L7.87783 124.955C7.95728 124.334 8.22911 123.753 8.65521 123.294L12.5765 119.071C13.6568 117.908 15.4565 117.788 16.682 118.797L23 124L28.9022 129.246C30.4289 130.603 32.8358 130.071 33.648 128.197L37.7169 118.807C38.1923 117.71 39.2738 117 40.4696 117H47.9618C49.192 117 50.2976 116.249 50.7508 115.105L60.1181 91.4638C60.3655 90.8394 60.8153 90.316 61.3955 89.9776L72.0575 83.7581C72.3504 83.5873 72.6122 83.368 72.8317 83.1097L77.1069 78.0801C78.7093 76.195 81.7764 76.9507 82.3195 79.3645L85.1283 91.848C85.359 92.8733 86.1094 93.7031 87.1064 94.0355L93.877 96.2923C95.1364 96.7121 96.522 96.2542 97.2833 95.1666L116.458 67.7747C116.811 67.2705 117 66.6698 117 66.0543V52C117 50.3431 118.343 49 120 49H137.857C138.88 49 139.834 49.5221 140.385 50.3848L150.824 66.7248C150.941 66.9077 151.077 67.0774 151.231 67.2309L155.012 71.0123C156.318 72.3175 158.481 72.1456 159.563 70.6505L165.937 61.8495C167.019 60.3544 169.182 60.1824 170.488 61.4877L179.121 70.1213C179.684 70.6839 180.447 71 181.243 71H200.338C200.774 71 201.205 71.0952 201.601 71.279L213.688 76.891C214.517 77.2758 215.476 77.2619 216.293 76.8533L221.342 74.3292C222.358 73.821 223 72.7822 223 71.6459V37.4669C223 36.2725 223.704 35.1822 224.827 34.7763C228.907 33.3021 234.813 32.0629 235.5 35.5C236.221 39.1067 245.127 48.1338 250.781 53.4172C251.786 54.3559 253.302 54.4654 254.446 53.7028L261.5 49L279.106 36.4903C279.97 35.8764 281.094 35.7639 282.062 36.1944L292.391 40.7847C293.384 41.2263 294.539 41.0957 295.409 40.4433L301.025 36.2309C301.65 35.7622 302.068 35.0683 302.189 34.2966L306.775 5.11153C307.114 2.95384 309.572 1.87012 311.394 3.07489L337.527 20.3567C338.153 20.7705 338.601 21.4037 338.783 22.1314L344.852 46.4092C345.222 47.8862 346.639 48.8524 348.148 48.6567L370.337 45.7804C371.627 45.6132 372.877 46.296 373.434 47.4713L376.858 54.6994C376.952 54.8992 377.069 55.0879 377.205 55.2621L388.12 69.2333C388.938 70.281 390.349 70.665 391.585 70.1768L405.789 64.5701C407.299 63.9741 409.009 64.687 409.648 66.1788L414.257 76.934C414.417 77.3074 414.5 77.7095 414.5 78.1158V84.3944C414.5 85.3975 415.001 86.3342 415.836 86.8906L437 101L456.676 112.518C457.212 112.832 457.638 113.304 457.894 113.869L469.5 139.5" stroke="url(#paint0_linear_230_6)" stroke-width="5" stroke-dasharray="1500"></path>
-                  <defs>
-                    <linearGradient gradientUnits="userSpaceOnUse" y2="84" x2="465.5" y1="84" x1="14" id="paint0_linear_230_6">
-                      <stop stop-opacity="0.1" stop-color="white"></stop>
-                      <stop stop-color="white" offset="0.5"></stop>
-                      <stop stop-opacity="0.1" stop-color="white" offset="1"></stop>
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </i>
-              <div class="lines">
-                <span></span>
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div id="archive-section" class="page-section" style="display:none;">
-      <div class="card"><h2>资料区</h2><p>这里存放所有代码和资料。</p></div>
-    </div>
-    <div id="chat-section" class="page-section" style="display:none;">
-      <div class="card"><h2>留言板</h2><p>这里是留言板内容。</p></div>
+    <div id="tree-of-life-embed" style="display:none; margin-top:0;">
+      <iframe src="final.htm" style="width:100vw;height:100vh;border:none;display:block;background:#fff;" frameborder="0" allowfullscreen></iframe>
     </div>
   </div>
-
-  <!-- 固定底部菜单 -->
-  <div class="menu" id="bottom-menu">
-    <a href="#" class="link active" id="nav-home" data-target="home-section">
+  <div id="chat-section" class="page-section" style="display:none;">
+    <div class="chat-flex">
+      <div class="chat-input-area">
+      <h2>💬 欢迎 <span id="welcome-name"></span>！请留言：</h2>
+      <label class="input-label" for="message-input">你的留言：</label>
+      <input class="input" placeholder="写点什么..." type="text" id="message-input" />
+      <button class="btn" onclick="submitMessage()">提交留言</button>
+      <div id="loading-animation" class="loader">
+          <span class="l">L</span><span class="o">O</span><span class="a">A</span><span class="d">D</span><span class="ispan">I</span><span class="n">N</span><span class="g">G</span>
+      </div>
+      </div>
+      <div class="chat-messages-area">
+        <div class="mt-6" id="messages"></div>
+      </div>
+    </div>
+  </div>
+  <!-- 导航条放在body最外层 -->
+  <div class="menu" id="bottom-menu" style="display:none;">
+    <a href="#" class="link active" id="nav-home" data-target="profile-section">
       <span class="link-icon">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 256 256">
           <rect width="256" height="256" fill="none"></rect>
@@ -932,17 +1548,17 @@
       </span>
       <span class="link-title">首页</span>
     </a>
-    <a href="#" class="link" id="nav-games" data-target="games-section">
-      <span class="link-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
-      </span>
-      <span class="link-title">Games</span>
-    </a>
-    <a href="#" class="link" id="nav-archive" data-target="archive-section">
+    <a href="#" class="link" id="nav-repo" data-target="repo-section">
       <span class="link-icon">
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M20.54 5.23l-1.39-1.39C18.93 3.53 18.48 3.5 18.07 3.5H5.93c-.41 0-.86.03-1.08.34l-1.39 1.39C3.21 5.42 3 5.7 3 6v2c0 .55.45 1 1 1h1v10c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V9h1c.55 0 1-.45 1-1V6c0-.3-.21-.58-.46-.77zM19 8H5V6.12l.93-.92h12.14l.93.92V8zm-2 10H7V9h10v9z"/></svg>
       </span>
-      <span class="link-title">资料</span>
+      <span class="link-title">仓库</span>
+    </a>
+    <a href="#" class="link" id="nav-archive" data-target="archive-section">
+      <span class="link-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+      </span>
+      <span class="link-title">成就</span>
     </a>
     <a href="#" class="link" id="nav-chat" data-target="chat-section">
       <span class="link-icon">
@@ -950,60 +1566,757 @@
       </span>
       <span class="link-title">留言</span>
     </a>
-  </div>
+    <div class="navbar-play-btn" id="navbar-play-btn">
+      <input type="checkbox" class="play-btn" id="music-toggle">
+      <span class="play-icon"></span>
+      <span class="pause-icon"></span>
+      <audio id="navbar-audio" src="mytreasure纯音乐.mp4" preload="auto"></audio>
+      </div>
+    </div>
+  
+  <!-- 在导航条旁边插入按钮 -->
+
+
+  <!-- 在导航栏.menu上方插入频谱canvas -->
+  <canvas id="navbar-spectrum"></canvas>
   </body>
   </html>
 
 <script>
-  (function() {
-    const canvas = document.getElementById("matrix-bg");
-    const ctx = canvas.getContext("2d");
-    let width = canvas.width = window.innerWidth;
-    let height = canvas.height = window.innerHeight;
-    const fontSize = 20;
-    const arr = Array(Math.ceil(width / fontSize)).fill(0);
-    const str = "01".split(""); // 只包含0和1
+  // 将音频相关的变量和函数移到全局作用域
+  let audioContext = null;
+  let analyser = null;
+  let dataArray = null;
+  let spectrumAnimationId = null;
 
-    function rain() {
-      ctx.fillStyle = "rgba(0,0,0,0.08)";
-      ctx.fillRect(0, 0, width, height);
-      ctx.fillStyle = "#0f0";
-      ctx.font = fontSize + "px monospace";
-      arr.forEach(function (value, index) {
-        ctx.fillText(str[Math.floor(Math.random() * str.length)], index * fontSize, value + fontSize);
-        arr[index] = value >= height || value > 8888 * Math.random() ? 0 : value + fontSize;
-      });
+  function initAudioAnalyser(audioPlayer) {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioContext.createMediaElementSource(audioPlayer);
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+    } else if (audioContext.state === 'suspended') {
+      audioContext.resume();
     }
+  }
 
-    setInterval(rain, 80); // 80ms，速度更慢
-
-    window.addEventListener('resize', () => {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    });
-  })();
+  function drawSpectrum(navbarSpectrum) {
+    if (!analyser) return;
+    
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().then(() => {
+        spectrumAnimationId = requestAnimationFrame(() => drawSpectrum(navbarSpectrum));
+      }).catch(e => {
+        console.error("AudioContext resume failed:", e);
+        if (spectrumAnimationId) {
+          cancelAnimationFrame(spectrumAnimationId);
+          spectrumAnimationId = null;
+        }
+      });
+      return;
+    }
+    
+    spectrumAnimationId = requestAnimationFrame(() => drawSpectrum(navbarSpectrum));
+    analyser.getByteFrequencyData(dataArray);
+    
+    const canvas = navbarSpectrum;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+    
+    ctx.clearRect(0, 0, width, height);
+    
+    const barWidth = (width / dataArray.length) * 2.5;
+    let x = 0;
+    
+    for(let i = 0; i < dataArray.length; i++) {
+      const barHeight = (dataArray[i] / 255) * height;
+      
+      // 创建渐变色
+      const gradient = ctx.createLinearGradient(0, height, 0, 0);
+      gradient.addColorStop(0, '#4f46e5');
+      gradient.addColorStop(0.5, '#6366f1');
+      gradient.addColorStop(1, '#a5b4fc');
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x, height - barHeight, barWidth, barHeight);
+      
+      x += barWidth + 1;
+    }
+  }
 
   document.addEventListener('DOMContentLoaded', function() {
-    var showBtn = document.getElementById('show-leave-btn');
-    var leaveSection = document.getElementById('leave-section');
-    if(showBtn && leaveSection) {
-      showBtn.addEventListener('click', function() {
-        showBtn.style.display = 'none';
-        leaveSection.style.display = 'block';
+    const musicToggle = document.getElementById('music-toggle');
+    const audioPlayer = document.getElementById('navbar-audio');
+    const navbarSpectrum = document.getElementById('navbar-spectrum');
+
+    if (musicToggle && audioPlayer && navbarSpectrum) {
+      // 设置canvas尺寸
+      navbarSpectrum.width = 380;
+      navbarSpectrum.height = 50;
+
+      // 初始化
+      musicToggle.checked = !audioPlayer.paused;
+      navbarSpectrum.style.display = audioPlayer.paused ? 'none' : 'block';
+
+      // 按钮控制音乐
+      musicToggle.addEventListener('change', function() {
+        if (this.checked) {
+          audioPlayer.play().then(() => {
+            initAudioAnalyser(audioPlayer);
+            drawSpectrum(navbarSpectrum);
+          }).catch(() => {});
+        } else {
+          audioPlayer.pause();
+          // 用户主动暂停时，移除 once 播放事件
+          if (oncePlayOnBodyHandler) {
+            document.body.removeEventListener('click', oncePlayOnBodyHandler);
+            oncePlayOnBodyHandler = null;
+          }
+        }
+      });
+
+      // 音乐播放时
+      audioPlayer.addEventListener('play', function() {
+        musicToggle.checked = true;
+        navbarSpectrum.style.display = 'block';
+        initAudioAnalyser(audioPlayer);
+        drawSpectrum(navbarSpectrum);
+      });
+
+      // 音乐暂停时
+      audioPlayer.addEventListener('pause', function() {
+        musicToggle.checked = false;
+        navbarSpectrum.style.display = 'none';
+        if (spectrumAnimationId) {
+          cancelAnimationFrame(spectrumAnimationId);
+          spectrumAnimationId = null;
+        }
+        if (audioContext) {
+          audioContext.suspend();
+        }
+      });
+
+      // 循环播放
+      audioPlayer.addEventListener('ended', function() {
+        musicToggle.checked = false;
+        navbarSpectrum.style.display = 'none';
+        if (spectrumAnimationId) {
+          cancelAnimationFrame(spectrumAnimationId);
+          spectrumAnimationId = null;
+        }
+        if (audioContext) {
+          audioContext.suspend();
+        }
+        audioPlayer.currentTime = 0;
+        audioPlayer.play();
+      });
+
+      // 回退自动播放逻辑
+      if (audioPlayer.paused) {
+        oncePlayOnBodyHandler = function() {
+          audioPlayer.play().then(() => {
+            const mt = document.getElementById('music-toggle');
+            if(mt) mt.checked = true;
+            const ns = document.getElementById('navbar-spectrum');
+            if(ns) ns.style.display = 'block';
+            initAudioAnalyser(audioPlayer);
+            if (audioContext && audioContext.state === 'suspended') {
+              audioContext.resume().then(() => {
+                if (!spectrumAnimationId) drawSpectrum(navbarSpectrum);
+              });
+            } else if (audioContext && audioContext.state === 'running') {
+              if (!spectrumAnimationId) drawSpectrum(navbarSpectrum);
+            }
+          }).catch(e => console.log('Body click play failed', e));
+          // 播放后移除事件
+          document.body.removeEventListener('click', oncePlayOnBodyHandler);
+          oncePlayOnBodyHandler = null;
+        };
+        document.body.addEventListener('click', oncePlayOnBodyHandler, { once: true });
+      }
+
+      // 尝试自动播放
+      audioPlayer.play().then(() => {
+        musicToggle.checked = true;
+        navbarSpectrum.style.display = 'block';
+        initAudioAnalyser(audioPlayer);
+        drawSpectrum(navbarSpectrum);
+      }).catch(() => {
+        // 自动播放被阻止时，不执行任何操作
       });
     }
-    const links = document.querySelectorAll('.menu .link');
-    links.forEach(link => {
-      link.addEventListener('click', function(e) {
-        e.preventDefault();
-        // 切换高亮
-        links.forEach(l => l.classList.remove('active'));
-        this.classList.add('active');
-        // 切换内容区
-        const target = this.getAttribute('data-target');
-        document.querySelectorAll('.page-section').forEach(sec => sec.style.display = 'none');
-        document.getElementById(target).style.display = 'block';
-      });
+  });
+
+  // 移除重复的音频初始化代码
+  // const audio = document.getElementById('navbar-audio');
+  // if (audio) {
+  //   audio.play().then(() => {
+  //     const mt = document.getElementById('music-toggle');
+  //     if(mt) mt.checked = true;
+  //     const ns = document.getElementById('navbar-spectrum');
+  //     if(ns) ns.style.display = 'block';
+  //     if (typeof setupAudioVisualizer === 'function') setupAudioVisualizer();
+  //   }).catch(() => {
+  //     // 自动播放被阻止时，不执行任何操作
+  //   });
+  // }
+
+  // --- 你已有的其他 DOMContentLoaded 逻辑，如导航等 ---
+  var showBtn = document.getElementById('show-leave-btn');
+  var leaveSection = document.getElementById('leave-section');
+  if(showBtn && leaveSection) {
+    showBtn.addEventListener('click', function() {
+      showBtn.style.display = 'none';
+      leaveSection.style.display = 'block';
+    });
+  }
+
+  // --- 你已有的全局函数 ---
+  function showGames(){}
+  function showSearch(){}
+  function showProfile(){
+    document.getElementById("profile-section").style.display = "block";
+    document.getElementById("chat-section").style.display = "none";
+    document.getElementById("leave-section").style.display = "none";
+    document.querySelector('.menu').style.display = 'flex';
+  }
+
+  function showChat() {
+    document.getElementById("chat-section").style.display = "block";
+    document.getElementById("leave-section").style.display = "block";
+    document.getElementById("profile-section").style.display = "none";
+  }
+
+  const navChatButton = document.getElementById('nav-chat');
+  if (navChatButton) {
+    navChatButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      document.querySelectorAll('.page-section').forEach(sec => sec.style.display = 'none');
+      document.getElementById('chat-section').style.display = 'block';
+      const leaveSectionDiv = document.getElementById('leave-section');
+      if (leaveSectionDiv) {
+        leaveSectionDiv.style.display = 'none';
+      }
+      document.querySelectorAll('.menu .link').forEach(l => l.classList.remove('active'));
+      this.classList.add('active');
+    });
+  }
+
+  const navRepoButton = document.getElementById('nav-repo');
+  if (navRepoButton) {
+    navRepoButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      document.querySelectorAll('.page-section').forEach(sec => sec.style.display = 'none');
+      const repoSection = document.getElementById('repo-section');
+      if (repoSection) repoSection.style.display = 'block';
+      document.querySelectorAll('.menu .link').forEach(l => l.classList.remove('active'));
+      this.classList.add('active');
+    });
+  }
+
+  // 导航栏点击事件
+  document.querySelectorAll('.menu .link').forEach(link => {
+    link.addEventListener('click', function(e) {
+      const target = this.getAttribute('data-target');
+      if (target === 'profile-section') {
+        document.getElementById("personal-info-wrapper").style.display = "none";
+        document.getElementById("tree-of-life-embed").style.display = "block";
+        initializeTreeIfNeeded();
+      } else {
+        // 其他区块显示逻辑...
+      }
     });
   });
+
+  const audio = document.getElementById('navbar-audio');
+  if (audio) {
+    audio.play().then(() => {
+      if (musicToggle) musicToggle.checked = true;
+      if (navbarSpectrumCanvas) navbarSpectrumCanvas.style.display = 'block';
+      if (typeof setupAudioVisualizer === 'function') setupAudioVisualizer();
+    }).catch(() => {
+      document.body.addEventListener('click', function oncePlay() {
+        audio.play();
+        if (musicToggle) musicToggle.checked = true;
+        if (navbarSpectrumCanvas) navbarSpectrumCanvas.style.display = 'block';
+        if (typeof setupAudioVisualizer === 'function') setupAudioVisualizer();
+        document.body.removeEventListener('click', oncePlay);
+      });
+    });
+  }
+
+  // 添加仓库卡片的点击事件处理
+  const matrixRainCard = document.getElementById('matrix-rain-card');
+  const chongqingMapCard = document.getElementById('chongqing-map-card');
+  const matrixRainFullscreen = document.getElementById('matrix-rain-fullscreen');
+  const chongqingMapFullscreen = document.getElementById('chongqing-map-fullscreen');
+  const closeMatrixRain = document.getElementById('close-matrix-rain');
+  const closeChongqingMap = document.getElementById('close-chongqing-map');
+
+  if (matrixRainCard && matrixRainFullscreen) {
+    matrixRainCard.addEventListener('click', function() {
+      matrixRainFullscreen.style.display = 'flex';
+      initMatrixRain();
+    });
+  }
+
+  if (closeMatrixRain) {
+    closeMatrixRain.addEventListener('click', function() {
+      matrixRainFullscreen.style.display = 'none';
+      stopMatrixRain();
+    });
+  }
+
+  if (chongqingMapCard && chongqingMapFullscreen) {
+    chongqingMapCard.addEventListener('click', function() {
+      chongqingMapFullscreen.style.display = 'flex';
+    });
+  }
+
+  if (closeChongqingMap) {
+    closeChongqingMap.addEventListener('click', function() {
+      chongqingMapFullscreen.style.display = 'none';
+    });
+  }
+
+  // 矩阵雨动画相关变量和函数
+  let matrixRainCanvas, matrixRainCtx, matrixRainInterval;
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()";
+  const drops = [];
+
+  function initMatrixRain() {
+    matrixRainCanvas = document.getElementById('matrix-rain-canvas');
+    if (!matrixRainCanvas) return;
+    
+    matrixRainCtx = matrixRainCanvas.getContext('2d');
+    matrixRainCanvas.width = window.innerWidth;
+    matrixRainCanvas.height = window.innerHeight;
+    
+    const columns = Math.floor(matrixRainCanvas.width / 20);
+    for (let i = 0; i < columns; i++) {
+      drops[i] = 1;
+    }
+    
+    if (matrixRainInterval) clearInterval(matrixRainInterval);
+    matrixRainInterval = setInterval(drawMatrixRain, 33);
+  }
+
+  function drawMatrixRain() {
+    matrixRainCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+    matrixRainCtx.fillRect(0, 0, matrixRainCanvas.width, matrixRainCanvas.height);
+    
+    matrixRainCtx.fillStyle = '#0F0';
+    matrixRainCtx.font = '15px monospace';
+    
+    for (let i = 0; i < drops.length; i++) {
+      const text = chars[Math.floor(Math.random() * chars.length)];
+      matrixRainCtx.fillText(text, i * 20, drops[i] * 20);
+      
+      if (drops[i] * 20 > matrixRainCanvas.height && Math.random() > 0.975) {
+        drops[i] = 0;
+      }
+      drops[i]++;
+    }
+  }
+
+  function stopMatrixRain() {
+    if (matrixRainInterval) {
+      clearInterval(matrixRainInterval);
+      matrixRainInterval = null;
+    }
+    if (matrixRainCtx) {
+      matrixRainCtx.clearRect(0, 0, matrixRainCanvas.width, matrixRainCanvas.height);
+    }
+  }
+
+  // 页面加载完成后初始化
+  document.addEventListener('DOMContentLoaded', function() {
+    // 添加仓库卡片的点击事件处理
+    const matrixRainCard = document.getElementById('matrix-rain-card');
+    const chongqingMapCard = document.getElementById('chongqing-map-card');
+    const matrixRainFullscreen = document.getElementById('matrix-rain-fullscreen');
+    const chongqingMapFullscreen = document.getElementById('chongqing-map-fullscreen');
+    const closeMatrixRain = document.getElementById('close-matrix-rain');
+    const closeChongqingMap = document.getElementById('close-chongqing-map');
+
+    if (matrixRainCard && matrixRainFullscreen) {
+      matrixRainCard.addEventListener('click', function() {
+        matrixRainFullscreen.style.display = 'flex';
+        initMatrixRain();
+      });
+    }
+
+    if (closeMatrixRain) {
+      closeMatrixRain.addEventListener('click', function() {
+        matrixRainFullscreen.style.display = 'none';
+        stopMatrixRain();
+      });
+    }
+
+    if (chongqingMapCard && chongqingMapFullscreen) {
+      chongqingMapCard.addEventListener('click', function() {
+        chongqingMapFullscreen.style.display = 'flex';
+      });
+    }
+
+    if (closeChongqingMap) {
+      closeChongqingMap.addEventListener('click', function() {
+        chongqingMapFullscreen.style.display = 'none';
+      });
+    }
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', function() {
+      if (matrixRainCanvas) {
+        matrixRainCanvas.width = window.innerWidth;
+        matrixRainCanvas.height = window.innerHeight;
+      }
+    });
+  });
+
+  // 导航相关函数
+  function showGames() {}
+  function showSearch() {}
+  
+  function showProfile() {
+    document.getElementById("profile-section").style.display = "block";
+    document.getElementById("chat-section").style.display = "none";
+    document.getElementById("leave-section").style.display = "none";
+    document.querySelector('.menu').style.display = 'flex';
+  }
+
+  function showChat() {
+    document.getElementById("chat-section").style.display = "block";
+    document.getElementById("leave-section").style.display = "block";
+    document.getElementById("profile-section").style.display = "none";
+  }
+
+  // 监听窗口大小变化
+  window.addEventListener('resize', function() {
+    if (matrixRainCanvas) {
+      matrixRainCanvas.width = window.innerWidth;
+      matrixRainCanvas.height = window.innerHeight;
+    }
+  });
+
 </script>
+
+<!-- 新增缺失的内容区 -->
+<div id="repo-section" class="page-section" style="display:none;">
+  <div style="display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:32px;padding:40px 15px;width:100%;box-sizing:border-box;height:100%;overflow-y:auto;">
+    <!-- 矩阵雨卡片 -->
+    <div class="container-card-charts" id="matrix-rain-card" style="cursor:pointer;width:48%;">
+      <div class="card-charts" style="position:relative;overflow:hidden;height:100%;">
+        <div class="tags-card">
+          <span class="name" style="font-size:16px;font-weight:bold;">矩阵雨</span>
+        </div>
+        <div class="main-texts">
+          <p class="title">Matrix Rain</p>
+          <p class="change">点击体验全屏动画</p>
+        </div>
+        <canvas id="matrix-rain-thumb" width="260" height="120" style="width:90%;height:120px;display:block;margin:0 auto;border-radius:12px;"></canvas>
+      </div>
+    </div>
+    <!-- 重庆地图卡片 -->
+    <div class="container-card-charts" id="chongqing-map-card" style="cursor:pointer;width:48%;">
+      <div class="card-charts" style="position:relative;overflow:hidden;height:100%;">
+        <div class="tags-card">
+          <span class="name" style="font-size:16px;font-weight:bold;">重庆地图</span>
+        </div>
+        <div class="main-texts">
+          <p class="title">重庆</p>
+          <p class="change">点击查看高校位置</p>
+        </div>
+        <svg width="120" height="120" viewBox="0 0 120 120" style="display:block;margin:0 auto;">
+          <path d="M60,10 Q80,20 90,40 Q110,60 80,80 Q60,110 40,90 Q10,80 30,60 Q20,40 40,20 Q50,10 60,10 Z" fill="#e57373" stroke="#b71c1c" stroke-width="2"/>
+          <text x="60" y="70" text-anchor="middle" fill="#fff" font-size="22" font-family="monospace">重庆</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 全屏矩阵雨弹窗 -->
+<div id="matrix-rain-fullscreen" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:#000;align-items:center;justify-content:center;">
+  <canvas id="matrix-rain-canvas" style="width:100vw;height:100vh;display:block;"></canvas>
+  <button id="close-matrix-rain" style="position:absolute;top:32px;right:48px;z-index:10000;font-size:22px;padding:10px 24px;border-radius:8px;border:none;background:rgba(255,255,255,0.85);color:#222;cursor:pointer;">关闭</button>
+</div>
+
+<!-- 全屏重庆地图弹窗（iframe嵌入lab4.htm） -->
+<div id="chongqing-map-fullscreen" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:#18181a;align-items:center;justify-content:center;flex-direction:column;">
+  <button id="close-chongqing-map" style="position:absolute;top:32px;right:48px;z-index:10000;font-size:22px;padding:10px 24px;border-radius:8px;border:none;background:rgba(255,255,255,0.85);color:#222;cursor:pointer;">关闭</button>
+  <iframe src="lab4.htm" width="100%" height="100%" style="border:none;background:#fff;"></iframe>
+</div>
+
+<div id="archive-section" class="page-section" style="display:none;">
+  <div class="center-content">
+    <h2 style="color: #4f46e5; margin-bottom: 30px; text-align: center; width: 100%;">我的成就</h2>
+    <div class="charts-container" style="background: white; border-radius: 16px; padding: 24px; margin-bottom: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%;">
+      <div style="display: flex; justify-content: space-around; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
+        <div style="display: flex; flex-direction: column; align-items: center; min-width: 340px; flex: 1;">
+          <h3 style="color: #333; margin-bottom: 20px;">成绩等级分布</h3>
+          <svg id="grades-chart" width="340" height="340" style="display: block; margin: 0 auto; max-width: 100%;"></svg>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: center; min-width: 400px; flex: 1;">
+          <h3 style="color: #333; margin-bottom: 20px;">课程成绩分布</h3>
+          <svg id="courses-chart" width="400" height="400" style="display: block; margin: 0 auto; max-width: 100%;"></svg>
+        </div>
+      </div>
+    </div>
+    <!-- 项目展示 -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+      <!-- FPGA项目 -->
+      <div style="background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; min-height: 250px;">
+        <div>
+          <h3 style="color: #333; margin-bottom: 20px;">FPGA项目</h3>
+          <p style="color:#444; margin-bottom: 16px; font-size:15px;">本人主要聚焦于频综设计、射频控制、传感器监测、远程无线操控、接口设计等FPGA应用方向，代码由于涉密原因，无法全部公开，若需要了解具体项目内容，可以在留言区留下联系方式。</p>
+        </div>
+        <a href="https://github.com/Metalphon/Sandalphon/tree/main" target="_blank" class="btn-github" style="margin-top:18px; align-self: center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.184 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.987 1.029-2.686-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.397.1 2.65.64.699 1.028 1.593 1.028 2.686 0 3.847-2.337 4.695-4.566 4.944.359.309.678.919.678 1.852 0 1.336-.012 2.417-.012 2.747 0 .267.18.577.688.479C19.138 20.2 22 16.447 22 12.021 22 6.484 17.523 2 12 2z"></path></svg>
+          查看GitHub源码
+        </a>
+      </div>
+      <!-- 单片机项目 -->
+      <div style="background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; min-height: 250px;">
+        <div>
+          <h3 style="color: #333; margin-bottom: 20px;">单片机项目</h3>
+          <p style="color:#444; margin-bottom: 16px; font-size:15px;">本人主要聚焦于传感器监测，射频控制，嵌入式项目设计等方向，主要使用stm32，对ti单片机，51单片机，合泰单片机也有少数项目，代码由于涉密原因，无法全部公开，若需要了解具体项目内容，可以在留言区留下联系方式。</p>
+        </div>
+        <a href="https://github.com/Metalphon/stm32_project" target="_blank" class="btn-github" style="margin-top:18px; align-self: center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.184 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.987 1.029-2.686-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.397.1 2.65.64.699 1.028 1.593 1.028 2.686 0 3.847-2.337 4.695-4.566 4.944.359.309.678.919.678 1.852 0 1.336-.012 2.417-.012 2.747 0 .267.18.577.688.479C19.138 20.2 22 16.447 22 12.021 22 6.484 17.523 2 12 2z"></path></svg>
+          查看GitHub源码
+        </a>
+      </div>
+      <!-- Python项目 -->
+      <div style="background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; min-height: 250px;">
+        <div>
+          <h3 style="color: #333; margin-bottom: 20px;">Python项目</h3>
+          <p style="color:#444; margin-bottom: 16px; font-size:15px;">本人主要聚焦于串口控制，网口控制，上位机界面编写，摄像头控制，爬虫实践等python和micropython方向，代码由于部分涉密，另一部分侵权，无法公开，若需要了解具体项目内容，可以在留言区留下联系方式。</p>
+        </div>
+        <a href="https://github.com/Metalphon/lot" target="_blank" class="btn-github" style="margin-top:18px; align-self: center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.184 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.987 1.029-2.686-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.397.1 2.65.64.699 1.028 1.593 1.028 2.686 0 3.847-2.337 4.695-4.566 4.944.359.309.678.919.678 1.852 0 1.336-.012 2.417-.012 2.747 0 .267.18.577.688.479C19.138 20.2 22 16.447 22 12.021 22 6.484 17.523 2 12 2z"></path></svg>
+          查看GitHub源码
+        </a>
+      </div>
+      <!-- Web项目 -->
+      <div style="background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; min-height: 250px;">
+        <div>
+          <h3 style="color: #333; margin-bottom: 20px;">Web项目</h3>
+          <p style="color:#444; margin-bottom: 16px; font-size:15px;">包括个人简历网站、数据可视化展示等，前端后端均有涉及。如需了解具体项目内容，请留言联系。</p>
+        </div>
+        <a href="https://github.com/Metalphon/visual" target="_blank" class="btn-github" style="margin-top:18px; align-self: center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;"><path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.865 8.184 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.987 1.029-2.686-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.397.1 2.65.64.699 1.028 1.593 1.028 2.686 0 3.847-2.337 4.695-4.566 4.944.359.309.678.919.678 1.852 0 1.336-.012 2.417-.012 2.747 0 .267.18.577.688.479C19.138 20.2 22 16.447 22 12.021 22 6.484 17.523 2 12 2z"></path></svg>
+          查看GitHub源码
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+// 成绩饼图
+function initGradesChart() {
+  const svg = d3.select("#grades-chart");
+  svg.selectAll("*").remove();
+  const width = 340, height = 340, radius = 140;
+  const g = svg.append("g").attr("transform", `translate(${width/2},${height/2})`);
+  const color = d3.scaleOrdinal().range(['#4f46e5','#6366f1','#818cf8','#a5b4fc']);
+  const data = getGradeLevelData();
+  const pie = d3.pie().value(d=>d.value).sort(null);
+  const arc = d3.arc().innerRadius(radius*0.6).outerRadius(radius);
+  const arcs = g.selectAll("arc").data(pie(data)).enter().append("g");
+
+  // 添加中心提示文字
+  const centerText = g.append("text")
+    .attr("class","tooltip")
+    .style("opacity",0)
+    .attr("text-anchor","middle")
+    .attr("alignment-baseline","middle")
+    .style("white-space","pre")
+    .style("font-size","18px")
+    .style("font-weight","bold")
+    .style("fill","#4f46e5");
+
+  arcs.append("path")
+    .attr("d", arc)
+    .attr("fill", (d,i)=>color(i))
+    .style("transition","all 0.3s")
+    .on("mouseover", function(event, d) {
+      centerText.text(`${d.data.name}\n${d.data.value}门`).style("opacity",1);
+      d3.select(this).style("transform","scale(1.05)").style("filter","brightness(1.1)");
+    })
+    .on("mouseout", function() {
+      centerText.style("opacity",0);
+      d3.select(this).style("transform","scale(1)").style("filter","none");
+    });
+
+  arcs.append("text")
+    .attr("transform", d=>`translate(${arc.centroid(d)})`)
+    .attr("class","label")
+    .text(d=>d.data.value>0?d.data.name:"")
+    .style("fill","white")
+    .style("font-size","16px")
+    .style("text-anchor","middle");
+}
+
+// 课程成绩饼图
+function initCoursesChart() {
+  const svg = d3.select("#courses-chart");
+  svg.selectAll("*").remove();
+  const width = 400, height = 400, radius = 180; 
+  const g = svg.append("g").attr("transform", `translate(${width/2},${height/2})`);
+  const color = d3.scaleOrdinal().range([
+    '#4f46e5', // 高等数学
+    '#6366f1', // 线性代数
+    '#f59e42', // 概率论
+    '#a5b4fc', // 信号与系统
+    '#c7d2fe', // 工程电磁场
+    '#f472b6', // 现代编码技术
+    '#34d399', // 模拟电子技术
+    '#fbbf24', // 数字电子技术
+    '#10b981', // 高频电子线路
+    '#f87171', // 微机原理
+    '#60a5fa', // 可编程器件原理
+    '#a3e635', // 虚拟显示技术
+    '#8b5cf6'  // 智能数据分析程序设计
+  ]);
+  const data = courseData.sort((a, b) => b.value - a.value); 
+  const pie = d3.pie().value(d=>d.value).sort(null);
+  // 加厚环形图
+  const arc = d3.arc().innerRadius(radius * 0.35).outerRadius(radius);
+  const arcs = g.selectAll("arc").data(pie(data)).enter().append("g");
+
+  arcs.append("path")
+    .attr("d", arc)
+    .attr("fill", (d,i)=>color(i))
+    .style("transition","all 0.3s")
+    .on("mouseover", function(event, d) {
+      centerText.text(`${d.data.name}\n${d.data.value}分`).style("opacity",1);
+      d3.select(this).style("transform","scale(1.05)").style("filter","brightness(1.1)");
+    })
+    .on("mouseout", function() {
+      centerText.style("opacity",0);
+      d3.select(this).style("transform","scale(1)").style("filter","none");
+    });
+
+  const centerText = g.append("text")
+    .attr("class","tooltip")
+    .style("opacity",0)
+    .attr("text-anchor","middle")
+    .attr("alignment-baseline","middle")
+    .style("white-space","pre")
+    .style("font-size","16px")
+    .style("font-weight","bold")
+    .style("fill","#4f46e5");
+
+  // 优化标签换行和字体
+  arcs.append("text")
+    .attr("transform", d => {
+      const pos = arc.centroid(d);
+      return `translate(${pos})`;
+    })
+    .attr("class","label")
+    .selectAll("tspan")
+    .data(d => {
+      const name = d.data.name;
+      // 技术类优先在"技术"前换行
+      if (name.length > 6 && name.includes('技术')) {
+        const arr = name.split('技术');
+        return arr.length === 2 ? [arr[0], '技术'] : [name];
+      } else if (name.length > 8) {
+        let breakPoint = Math.floor(name.length / 2);
+        if (name.length > 10) breakPoint = 5;
+        if (breakPoint > 0 && breakPoint < name.length -1 && /[\u4e00-\u9fa5]/.test(name[breakPoint-1]) && /[\u4e00-\u9fa5]/.test(name[breakPoint])) {
+          return [name.substring(0, breakPoint), name.substring(breakPoint)];
+        }
+      }
+      return [name];
+    })
+    .enter().append("tspan")
+    .attr("x", 0)
+    .attr("dy", (d, i) => i === 0 ? 0 : "1.2em")
+    .text(d => d)
+    .style("fill","white")
+    .style("font-size","10px")
+    .style("text-anchor","middle")
+    .style("pointer-events","none");
+}
+
+// 在成就页面显示时初始化图表
+document.getElementById('nav-archive').addEventListener('click', function() {
+  setTimeout(() => {
+    initGradesChart();
+    initCoursesChart();
+  }, 100);
+});
+
+// 监听窗口大小变化
+window.addEventListener('resize', function() {
+  if (document.getElementById('archive-section').style.display === 'block') {
+    initGradesChart();
+    initCoursesChart();
+  }
+});
+
+// 课程成绩数据
+const courseData = [
+  { name: '高等数学', value: 83 },
+  { name: '线性代数', value: 96 },
+  { name: '概率论', value: 83 },
+  { name: '信号与系统', value: 76 },
+  { name: '工程电磁场', value: 80 },
+  { name: '现代编码技术', value: 91 },
+  { name: '模拟电子技术', value: 88 },
+  { name: '数字电子技术', value: 87 },
+  { name: '高频电子线路', value: 87 },
+  { name: '微机原理', value: 83 },
+  { name: '可编程器件原理', value: 90 },
+  { name: '虚拟显示技术', value: 83 },
+  { name: '智能数据分析程序设计', value: 90 }
+];
+
+// 统计成绩等级分布
+function getGradeLevelData() {
+  let excellent = 0, good = 0, medium = 0, pass = 0;
+  courseData.forEach(d => {
+    if (d.value >= 90) excellent++;
+    else if (d.value >= 80) good++;
+    else if (d.value >= 70) medium++;
+    else if (d.value >= 60) pass++;
+  });
+  return [
+    { name: '优秀', value: excellent },
+    { name: '良好', value: good },
+    { name: '中等', value: medium },
+    { name: '及格', value: pass }
+  ];
+}
+</script>
+
+<style>
+#profile-section #tree-of-life-embed .container {
+  max-width: 100vw;
+  padding: 0;
+  background: #fff;
+}
+#profile-section #tree-of-life-embed h1 {
+  font-size: 2.2rem;
+  color: #4f46e5;
+  margin-bottom: 1.2rem;
+}
+#profile-section #tree-of-life-embed svg {
+  background: #f8f4e8 !important;
+}
+</style>
+
+<!-- 全屏比特币K线弹窗 -->
+<div id="btc-kline-fullscreen" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:#18181a;align-items:center;justify-content:center;flex-direction:column;">
+  <button id="close-btc-kline" style="position:absolute;top:32px;right:48px;z-index:10000;font-size:22px;padding:10px 24px;border-radius:8px;border:none;background:rgba(255,255,255,0.85);color:#222;cursor:pointer;">关闭</button>
+  <div id="btc-kline-chart" style="width:90vw;height:80vh;background:#fff;border-radius:12px;"></div>
+</div>

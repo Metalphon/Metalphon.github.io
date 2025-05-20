@@ -7,6 +7,15 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
     import { getFirestore, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
+    // 添加全局播放控制变量
+    window.hasAutoPlayedOnce = false;
+    window.isUserPaused = false;
+    window.oncePlayOnBodyHandler = null;
+    window.spectrumAnimationId = null;
+    window.audioContext = null;
+    window.analyser = null;
+    window.dataArray = null;
+
     const firebaseConfig = {
       apiKey: "AIzaSyAYftoevTnczZimCLzzJujqFqBXcReMvt8",
       authDomain: "metalphon-7ed49.firebaseapp.com",
@@ -48,13 +57,34 @@
       const audio = document.getElementById('navbar-audio');
       const musicToggle = document.getElementById('music-toggle');
       const navbarSpectrum = document.getElementById('navbar-spectrum');
-      if (audio) {
+      
+      if (audio && !window.hasAutoPlayedOnce && !window.isUserPaused) {
         audio.play().then(() => {
           if (musicToggle) musicToggle.checked = true;
           if (navbarSpectrum) navbarSpectrum.style.display = 'block';
-          // 播放事件监听器会处理频谱初始化
+          window.hasAutoPlayedOnce = true;
+          if (typeof window.initAudioAnalyserGlobal === 'function') {
+            window.initAudioAnalyserGlobal(audio);
+            window.drawSpectrumGlobal(navbarSpectrum);
+          }
         }).catch(() => {
-          // 自动播放被阻止时，按钮和频谱不强制显示
+          // 自动播放被阻止时，添加一次性点击事件
+          if (!window.isUserPaused && !window.oncePlayOnBodyHandler) {
+            window.oncePlayOnBodyHandler = () => {
+              audio.play().then(() => {
+                if (musicToggle) musicToggle.checked = true;
+                if (navbarSpectrum) navbarSpectrum.style.display = 'block';
+                window.hasAutoPlayedOnce = true;
+                if (typeof window.initAudioAnalyserGlobal === 'function') {
+                  window.initAudioAnalyserGlobal(audio);
+                  window.drawSpectrumGlobal(navbarSpectrum);
+                }
+              }).catch(() => {});
+              document.body.removeEventListener('click', window.oncePlayOnBodyHandler);
+              window.oncePlayOnBodyHandler = null;
+            };
+            document.body.addEventListener('click', window.oncePlayOnBodyHandler, { once: true });
+          }
         });
       }
       // --- END ---
@@ -1583,187 +1613,421 @@
   </html>
 
 <script>
-  // 将音频相关的变量和函数移到全局作用域
-  let audioContext = null;
-  let analyser = null;
-  let dataArray = null;
-  let spectrumAnimationId = null;
+  // 全局音频变量
+  window.hasAutoPlayedOnce = window.hasAutoPlayedOnce || false;
+  window.isUserPaused = window.isUserPaused || false;
+  window.oncePlayOnBodyHandler = window.oncePlayOnBodyHandler || null;
+  window.spectrumAnimationId = window.spectrumAnimationId || null;
+  window.audioContext = window.audioContext || null;
+  window.analyser = window.analyser || null;
+  window.dataArray = window.dataArray || null;
 
-  function initAudioAnalyser(audioPlayer) {
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const source = audioContext.createMediaElementSource(audioPlayer);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
-    } else if (audioContext.state === 'suspended') {
-      audioContext.resume();
+  // 全局音频分析器初始化函数
+  window.initAudioAnalyserGlobal = function(audioPlayer) {
+    if (!window.audioContext || window.audioContext.state === 'closed') {
+      console.log("创建新的AudioContext");
+      window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const source = window.audioContext.createMediaElementSource(audioPlayer);
+      window.analyser = window.audioContext.createAnalyser();
+      window.analyser.fftSize = 256;
+      source.connect(window.analyser);
+      window.analyser.connect(window.audioContext.destination);
+      window.dataArray = new Uint8Array(window.analyser.frequencyBinCount);
+      console.log("全局AudioContext和Analyser已初始化/重新初始化");
+    } else if (window.audioContext.state === 'suspended') {
+      window.audioContext.resume().then(() => {
+        console.log("AudioContext在initAudioAnalyserGlobal中已恢复");
+      }).catch(e => console.error("AudioContext恢复失败:", e));
     }
-  }
+  };
 
-  function drawSpectrum(navbarSpectrum) {
-    if (!analyser) return;
-    
-    if (audioContext.state === 'suspended') {
-      audioContext.resume().then(() => {
-        spectrumAnimationId = requestAnimationFrame(() => drawSpectrum(navbarSpectrum));
-      }).catch(e => {
-        console.error("AudioContext resume failed:", e);
-        if (spectrumAnimationId) {
-          cancelAnimationFrame(spectrumAnimationId);
-          spectrumAnimationId = null;
+  // 全局频谱绘制函数
+  window.drawSpectrumGlobal = function(navbarSpectrum) {
+    if (!window.analyser || !window.audioContext) {
+      console.warn("drawSpectrumGlobal: Analyser或AudioContext未就绪");
+      if (window.spectrumAnimationId) cancelAnimationFrame(window.spectrumAnimationId);
+      window.spectrumAnimationId = null;
+      if(navbarSpectrum) navbarSpectrum.style.display = 'none';
+      return;
+    }
+
+    const audioPlayerElement = document.getElementById('navbar-audio');
+
+    if (window.audioContext.state === 'suspended') {
+      window.audioContext.resume().then(() => {
+        console.log("AudioContext在drawSpectrumGlobal中已恢复。请求动画帧");
+        if (audioPlayerElement && !audioPlayerElement.paused && !window.isUserPaused) {
+          navbarSpectrum.style.display = 'block';
+        } else {
+          navbarSpectrum.style.display = 'none';
         }
+        if (window.spectrumAnimationId) cancelAnimationFrame(window.spectrumAnimationId);
+        window.spectrumAnimationId = requestAnimationFrame(() => window.drawSpectrumGlobal(navbarSpectrum));
+      }).catch(e => {
+        console.error("AudioContext在drawSpectrumGlobal中恢复失败:", e);
+        if (window.spectrumAnimationId) cancelAnimationFrame(window.spectrumAnimationId);
+        window.spectrumAnimationId = null;
+        navbarSpectrum.style.display = 'none';
       });
       return;
     }
-    
-    spectrumAnimationId = requestAnimationFrame(() => drawSpectrum(navbarSpectrum));
-    analyser.getByteFrequencyData(dataArray);
-    
+
+    if (window.audioContext.state === 'closed') {
+      console.warn("AudioContext已关闭。无法绘制频谱");
+      if (window.spectrumAnimationId) cancelAnimationFrame(window.spectrumAnimationId);
+      window.spectrumAnimationId = null;
+      navbarSpectrum.style.display = 'none';
+      return;
+    }
+
+    if (audioPlayerElement && (audioPlayerElement.paused || window.isUserPaused)) {
+      console.log("音频已暂停或用户暂停，停止频谱");
+      if (window.spectrumAnimationId) cancelAnimationFrame(window.spectrumAnimationId);
+      window.spectrumAnimationId = null;
+      navbarSpectrum.style.display = 'none';
+      const ctx = navbarSpectrum.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, navbarSpectrum.width, navbarSpectrum.height);
+      return;
+    }
+
+    if (window.spectrumAnimationId) cancelAnimationFrame(window.spectrumAnimationId);
+    window.spectrumAnimationId = requestAnimationFrame(() => window.drawSpectrumGlobal(navbarSpectrum));
+
+    window.analyser.getByteFrequencyData(window.dataArray);
+
     const canvas = navbarSpectrum;
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
-    
+
     ctx.clearRect(0, 0, width, height);
-    
-    const barWidth = (width / dataArray.length) * 2.5;
+
+    const barWidth = (width / window.dataArray.length) * 2.5;
     let x = 0;
-    
-    for(let i = 0; i < dataArray.length; i++) {
-      const barHeight = (dataArray[i] / 255) * height;
-      
-      // 创建渐变色
+
+    for (let i = 0; i < window.dataArray.length; i++) {
+      const barHeight = (window.dataArray[i] / 255) * height;
       const gradient = ctx.createLinearGradient(0, height, 0, 0);
       gradient.addColorStop(0, '#4f46e5');
       gradient.addColorStop(0.5, '#6366f1');
       gradient.addColorStop(1, '#a5b4fc');
-      
       ctx.fillStyle = gradient;
       ctx.fillRect(x, height - barHeight, barWidth, barHeight);
-      
       x += barWidth + 1;
     }
-  }
+  };
 
   document.addEventListener('DOMContentLoaded', function() {
-    const musicToggle = document.getElementById('music-toggle');
-    const audioPlayer = document.getElementById('navbar-audio');
-    const navbarSpectrum = document.getElementById('navbar-spectrum');
+    const musicToggleElement = document.getElementById('music-toggle');
+    const audioPlayerElement = document.getElementById('navbar-audio');
+    const navbarSpectrumElement = document.getElementById('navbar-spectrum');
 
-    if (musicToggle && audioPlayer && navbarSpectrum) {
-      // 设置canvas尺寸
-      navbarSpectrum.width = 380;
-      navbarSpectrum.height = 50;
+    if (musicToggleElement && audioPlayerElement && navbarSpectrumElement) {
+      navbarSpectrumElement.width = 380;
+      navbarSpectrumElement.height = 50;
 
-      // 初始化
-      musicToggle.checked = !audioPlayer.paused;
-      navbarSpectrum.style.display = audioPlayer.paused ? 'none' : 'block';
+      musicToggleElement.checked = !audioPlayerElement.paused && window.hasAutoPlayedOnce && !window.isUserPaused;
+      navbarSpectrumElement.style.display = musicToggleElement.checked ? 'block' : 'none';
 
-      // 按钮控制音乐
-      musicToggle.addEventListener('change', function() {
+      musicToggleElement.addEventListener('change', function() {
         if (this.checked) {
-          audioPlayer.play().then(() => {
-            initAudioAnalyser(audioPlayer);
-            drawSpectrum(navbarSpectrum);
-          }).catch(() => {});
-        } else {
-          audioPlayer.pause();
-          // 用户主动暂停时，移除 once 播放事件
-          if (oncePlayOnBodyHandler) {
-            document.body.removeEventListener('click', oncePlayOnBodyHandler);
-            oncePlayOnBodyHandler = null;
+          window.isUserPaused = false;
+          const playLogic = () => {
+            audioPlayerElement.play().then(() => {
+              console.log("通过开关启动播放");
+              if (window.oncePlayOnBodyHandler) {
+                document.body.removeEventListener('click', window.oncePlayOnBodyHandler);
+                window.oncePlayOnBodyHandler = null;
+              }
+            }).catch(error => {
+              console.error("开关播放失败:", error);
+              this.checked = false;
+              window.isUserPaused = true;
+              navbarSpectrumElement.style.display = 'none';
+            });
+          };
+
+          if (window.audioContext && window.audioContext.state === 'suspended') {
+            window.audioContext.resume().then(playLogic).catch(e => {
+              console.error("播放前恢复上下文失败:", e);
+              this.checked = false;
+              window.isUserPaused = true;
+              navbarSpectrumElement.style.display = 'none';
+            });
+          } else {
+            playLogic();
           }
+        } else {
+          window.isUserPaused = true;
+          audioPlayerElement.pause();
         }
       });
 
-      // 音乐播放时
-      audioPlayer.addEventListener('play', function() {
-        musicToggle.checked = true;
-        navbarSpectrum.style.display = 'block';
-        initAudioAnalyser(audioPlayer);
-        drawSpectrum(navbarSpectrum);
-      });
-
-      // 音乐暂停时
-      audioPlayer.addEventListener('pause', function() {
-        musicToggle.checked = false;
-        navbarSpectrum.style.display = 'none';
-        if (spectrumAnimationId) {
-          cancelAnimationFrame(spectrumAnimationId);
-          spectrumAnimationId = null;
+      audioPlayerElement.addEventListener('play', function() {
+        console.log("'play'事件。isUserPaused:", window.isUserPaused);
+        if (!window.isUserPaused) {
+          musicToggleElement.checked = true;
+          navbarSpectrumElement.style.display = 'block';
+          window.initAudioAnalyserGlobal(audioPlayerElement);
+          window.drawSpectrumGlobal(navbarSpectrumElement);
+        } else {
+          audioPlayerElement.pause();
+          musicToggleElement.checked = false;
+          navbarSpectrumElement.style.display = 'none';
         }
-        if (audioContext) {
-          audioContext.suspend();
+        if (window.oncePlayOnBodyHandler) {
+          document.body.removeEventListener('click', window.oncePlayOnBodyHandler);
+          window.oncePlayOnBodyHandler = null;
         }
       });
 
-      // 循环播放
-      audioPlayer.addEventListener('ended', function() {
-        musicToggle.checked = false;
-        navbarSpectrum.style.display = 'none';
-        if (spectrumAnimationId) {
-          cancelAnimationFrame(spectrumAnimationId);
-          spectrumAnimationId = null;
+      audioPlayerElement.addEventListener('pause', function() {
+        console.log("'pause'事件。isUserPaused:", window.isUserPaused);
+        if (window.isUserPaused || audioPlayerElement.paused) {
+          musicToggleElement.checked = false;
         }
-        if (audioContext) {
-          audioContext.suspend();
+        navbarSpectrumElement.style.display = 'none';
+        if (window.spectrumAnimationId) {
+          cancelAnimationFrame(window.spectrumAnimationId);
+          window.spectrumAnimationId = null;
         }
-        audioPlayer.currentTime = 0;
-        audioPlayer.play();
+        const spectrumCtx = navbarSpectrumElement.getContext('2d');
+        if (spectrumCtx) spectrumCtx.clearRect(0, 0, navbarSpectrumElement.width, navbarSpectrumElement.height);
+
+        if (window.audioContext && window.audioContext.state === 'running' && window.isUserPaused) {
+          window.audioContext.suspend().catch(e => console.error("暂停时挂起失败", e));
+        }
       });
 
-      // 回退自动播放逻辑
-      if (audioPlayer.paused) {
-        oncePlayOnBodyHandler = function() {
-          audioPlayer.play().then(() => {
-            const mt = document.getElementById('music-toggle');
-            if(mt) mt.checked = true;
-            const ns = document.getElementById('navbar-spectrum');
-            if(ns) ns.style.display = 'block';
-            initAudioAnalyser(audioPlayer);
-            if (audioContext && audioContext.state === 'suspended') {
-              audioContext.resume().then(() => {
-                if (!spectrumAnimationId) drawSpectrum(navbarSpectrum);
-              });
-            } else if (audioContext && audioContext.state === 'running') {
-              if (!spectrumAnimationId) drawSpectrum(navbarSpectrum);
-            }
-          }).catch(e => console.log('Body click play failed', e));
-          // 播放后移除事件
-          document.body.removeEventListener('click', oncePlayOnBodyHandler);
-          oncePlayOnBodyHandler = null;
-        };
-        document.body.addEventListener('click', oncePlayOnBodyHandler, { once: true });
-      }
-
-      // 尝试自动播放
-      audioPlayer.play().then(() => {
-        musicToggle.checked = true;
-        navbarSpectrum.style.display = 'block';
-        initAudioAnalyser(audioPlayer);
-        drawSpectrum(navbarSpectrum);
-      }).catch(() => {
-        // 自动播放被阻止时，不执行任何操作
+      audioPlayerElement.addEventListener('ended', function() {
+        console.log("'ended'事件。isUserPaused:", window.isUserPaused);
+        audioPlayerElement.currentTime = 0;
+        if (!window.isUserPaused) {
+          const playPromise = audioPlayerElement.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(e => {
+              console.log("结束后循环播放尝试失败:", e);
+              if (!window.isUserPaused && !window.oncePlayOnBodyHandler) {
+                window.oncePlayOnBodyHandler = () => {
+                  window.isUserPaused = false;
+                  audioPlayerElement.play().catch(() => {});
+                  document.body.removeEventListener('click', window.oncePlayOnBodyHandler);
+                  window.oncePlayOnBodyHandler = null;
+                };
+                document.body.addEventListener('click', window.oncePlayOnBodyHandler, { once: true });
+              }
+            });
+          }
+        } else {
+          musicToggleElement.checked = false;
+          navbarSpectrumElement.style.display = 'none';
+        }
       });
     }
-  });
 
-  // 移除重复的音频初始化代码
-  // const audio = document.getElementById('navbar-audio');
-  // if (audio) {
-  //   audio.play().then(() => {
-  //     const mt = document.getElementById('music-toggle');
-  //     if(mt) mt.checked = true;
-  //     const ns = document.getElementById('navbar-spectrum');
-  //     if(ns) ns.style.display = 'block';
-  //     if (typeof setupAudioVisualizer === 'function') setupAudioVisualizer();
-  //   }).catch(() => {
-  //     // 自动播放被阻止时，不执行任何操作
-  //   });
-  // }
+    setTimeout(() => {
+      if (audioPlayerElement && !window.hasAutoPlayedOnce && audioPlayerElement.paused && !window.isUserPaused) {
+        console.log("初始自动播放回退：添加body点击监听器");
+        if (!window.oncePlayOnBodyHandler) {
+          window.oncePlayOnBodyHandler = () => {
+            console.log("初始播放的body点击处理程序触发");
+            window.isUserPaused = false;
+            audioPlayerElement.play().then(() => {
+              window.hasAutoPlayedOnce = true;
+            }).catch((err) => {
+              console.error("body点击初始播放失败:", err);
+            });
+            document.body.removeEventListener('click', window.oncePlayOnBodyHandler);
+            window.oncePlayOnBodyHandler = null;
+          };
+          document.body.addEventListener('click', window.oncePlayOnBodyHandler, { once: true });
+        }
+      }
+    }, 500);
+
+    // 其他DOMContentLoaded逻辑
+    var showBtn = document.getElementById('show-leave-btn');
+    var leaveSection = document.getElementById('leave-section');
+    if(showBtn && leaveSection) {
+      showBtn.addEventListener('click', function() {
+        showBtn.style.display = 'none';
+        leaveSection.style.display = 'block';
+      });
+    }
+
+    // 导航相关函数
+    const navChatButton = document.getElementById('nav-chat');
+    if (navChatButton) {
+      navChatButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.page-section').forEach(sec => sec.style.display = 'none');
+        document.getElementById('chat-section').style.display = 'block';
+        const leaveSectionDiv = document.getElementById('leave-section');
+        if (leaveSectionDiv) {
+          leaveSectionDiv.style.display = 'none';
+        }
+        document.querySelectorAll('.menu .link').forEach(l => l.classList.remove('active'));
+        this.classList.add('active');
+      });
+    }
+
+    const navRepoButton = document.getElementById('nav-repo');
+    if (navRepoButton) {
+      navRepoButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.page-section').forEach(sec => sec.style.display = 'none');
+        const repoSection = document.getElementById('repo-section');
+        if (repoSection) repoSection.style.display = 'block';
+        document.querySelectorAll('.menu .link').forEach(l => l.classList.remove('active'));
+        this.classList.add('active');
+      });
+    }
+
+    // 主导航逻辑
+    document.querySelectorAll('.menu .link').forEach(link => {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.menu .link').forEach(l => l.classList.remove('active'));
+        this.classList.add('active');
+        
+        const targetId = this.getAttribute('data-target');
+        document.querySelectorAll('.page-section').forEach(sec => sec.style.display = 'none');
+        
+        const targetSection = document.getElementById(targetId);
+        if (targetSection) {
+          targetSection.style.display = 'block';
+          if (targetId === 'archive-section') {
+            setTimeout(() => {
+              if (typeof initGradesChart === 'function') initGradesChart();
+              if (typeof initCoursesChart === 'function') initCoursesChart();
+            }, 100);
+          }
+        } else {
+          console.warn("未找到目标部分:", targetId);
+        }
+        
+        const personalInfoWrapper = document.getElementById('personal-info-wrapper');
+        const treeEmbed = document.getElementById('tree-of-life-embed');
+
+        if (targetId === 'profile-section') {
+          if (personalInfoWrapper) personalInfoWrapper.style.display = 'none';
+          if (treeEmbed) treeEmbed.style.display = 'block';
+        } else if (targetId === 'chat-section') {
+          if (personalInfoWrapper) personalInfoWrapper.style.display = 'block';
+          if (treeEmbed) treeEmbed.style.display = 'none';
+        } else {
+          if (personalInfoWrapper) personalInfoWrapper.style.display = 'block';
+          if (treeEmbed) treeEmbed.style.display = 'none';
+        }
+        
+        document.getElementById("bottom-menu").style.display = "flex";
+      });
+    });
+
+    // 矩阵雨和地图卡片逻辑
+    const matrixRainCard = document.getElementById('matrix-rain-card');
+    const chongqingMapCard = document.getElementById('chongqing-map-card');
+    const matrixRainFullscreen = document.getElementById('matrix-rain-fullscreen');
+    const chongqingMapFullscreen = document.getElementById('chongqing-map-fullscreen');
+    const closeMatrixRain = document.getElementById('close-matrix-rain');
+    const closeChongqingMap = document.getElementById('close-chongqing-map');
+
+    let matrixRainCanvas, matrixRainCtx, matrixRainInterval;
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()";
+    const drops = [];
+
+    function initMatrixRain() {
+      matrixRainCanvas = document.getElementById('matrix-rain-canvas');
+      if (!matrixRainCanvas) return;
+      
+      matrixRainCtx = matrixRainCanvas.getContext('2d');
+      matrixRainCanvas.width = window.innerWidth;
+      matrixRainCanvas.height = window.innerHeight;
+      
+      const columns = Math.floor(matrixRainCanvas.width / 20);
+      drops.length = 0;
+      for (let i = 0; i < columns; i++) {
+        drops[i] = 1 + Math.random() * matrixRainCanvas.height / 20;
+      }
+      
+      if (matrixRainInterval) clearInterval(matrixRainInterval);
+      matrixRainInterval = setInterval(drawMatrixRain, 33);
+    }
+
+    function drawMatrixRain() {
+      if (!matrixRainCtx || !matrixRainCanvas) return;
+      matrixRainCtx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      matrixRainCtx.fillRect(0, 0, matrixRainCanvas.width, matrixRainCanvas.height);
+      
+      matrixRainCtx.fillStyle = '#0F0';
+      matrixRainCtx.font = '15px monospace';
+      
+      for (let i = 0; i < drops.length; i++) {
+        const text = chars[Math.floor(Math.random() * chars.length)];
+        matrixRainCtx.fillText(text, i * 20, drops[i] * 20);
+        
+        if (drops[i] * 20 > matrixRainCanvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+    }
+
+    function stopMatrixRain() {
+      if (matrixRainInterval) {
+        clearInterval(matrixRainInterval);
+        matrixRainInterval = null;
+      }
+      if (matrixRainCtx && matrixRainCanvas) {
+        matrixRainCtx.clearRect(0, 0, matrixRainCanvas.width, matrixRainCanvas.height);
+      }
+    }
+    
+    if (matrixRainCard && matrixRainFullscreen) {
+      matrixRainCard.addEventListener('click', function() {
+        matrixRainFullscreen.style.display = 'flex';
+        initMatrixRain();
+      });
+    }
+
+    if (closeMatrixRain) {
+      closeMatrixRain.addEventListener('click', function() {
+        matrixRainFullscreen.style.display = 'none';
+        stopMatrixRain();
+      });
+    }
+
+    if (chongqingMapCard && chongqingMapFullscreen) {
+      chongqingMapCard.addEventListener('click', function() {
+        chongqingMapFullscreen.style.display = 'flex';
+      });
+    }
+
+    if (closeChongqingMap) {
+      closeChongqingMap.addEventListener('click', function() {
+        chongqingMapFullscreen.style.display = 'none';
+      });
+    }
+
+    window.addEventListener('resize', function() {
+      if (matrixRainCanvas && matrixRainFullscreen.style.display === 'flex') {
+        matrixRainCanvas.width = window.innerWidth;
+        matrixRainCanvas.height = window.innerHeight;
+        const columns = Math.floor(matrixRainCanvas.width / 20);
+        if (drops.length !== columns) {
+          drops.length = 0;
+          for (let i = 0; i < columns; i++) {
+            drops[i] = 1 + Math.random() * matrixRainCanvas.height / 20;
+          }
+        }
+      }
+      const archiveSection = document.getElementById('archive-section');
+      if (archiveSection && archiveSection.style.display !== 'none') {
+        if (typeof initGradesChart === 'function') initGradesChart();
+        if (typeof initCoursesChart === 'function') initCoursesChart();
+      }
+    });
+  });
 
   // --- 你已有的其他 DOMContentLoaded 逻辑，如导航等 ---
   var showBtn = document.getElementById('show-leave-btn');
@@ -1783,12 +2047,24 @@
     document.getElementById("chat-section").style.display = "none";
     document.getElementById("leave-section").style.display = "none";
     document.querySelector('.menu').style.display = 'flex';
+    
+    // 确保个人信息和树的状态正确
+    const personalInfoWrapper = document.getElementById('personal-info-wrapper');
+    const treeEmbed = document.getElementById('tree-of-life-embed');
+    if (personalInfoWrapper) personalInfoWrapper.style.display = 'none';
+    if (treeEmbed) treeEmbed.style.display = 'block';
   }
 
   function showChat() {
     document.getElementById("chat-section").style.display = "block";
     document.getElementById("leave-section").style.display = "block";
     document.getElementById("profile-section").style.display = "none";
+    
+    // 确保个人信息和树的状态正确
+    const personalInfoWrapper = document.getElementById('personal-info-wrapper');
+    const treeEmbed = document.getElementById('tree-of-life-embed');
+    if (personalInfoWrapper) personalInfoWrapper.style.display = 'block';
+    if (treeEmbed) treeEmbed.style.display = 'none';
   }
 
   const navChatButton = document.getElementById('nav-chat');
@@ -1821,14 +2097,40 @@
   // 导航栏点击事件
   document.querySelectorAll('.menu .link').forEach(link => {
     link.addEventListener('click', function(e) {
+      e.preventDefault();
+      // 切换高亮
+      document.querySelectorAll('.menu .link').forEach(l => l.classList.remove('active'));
+      this.classList.add('active');
+      
+      // 切换内容区
       const target = this.getAttribute('data-target');
-      if (target === 'profile-section') {
-        document.getElementById("personal-info-wrapper").style.display = "none";
-        document.getElementById("tree-of-life-embed").style.display = "block";
-        initializeTreeIfNeeded();
+      document.querySelectorAll('.page-section').forEach(sec => sec.style.display = 'none');
+      
+      if(target === 'chat-section') {
+        document.getElementById('chat-section').style.display = 'block';
+        // 确保个人信息和树的状态正确
+        const personalInfoWrapper = document.getElementById('personal-info-wrapper');
+        const treeEmbed = document.getElementById('tree-of-life-embed');
+        if (personalInfoWrapper) personalInfoWrapper.style.display = 'block';
+        if (treeEmbed) treeEmbed.style.display = 'none';
+      } else if(target === 'profile-section') {
+        document.getElementById('profile-section').style.display = 'block';
+        // 确保个人信息和树的状态正确
+        const personalInfoWrapper = document.getElementById('personal-info-wrapper');
+        const treeEmbed = document.getElementById('tree-of-life-embed');
+        if (personalInfoWrapper) personalInfoWrapper.style.display = 'none';
+        if (treeEmbed) treeEmbed.style.display = 'block';
       } else {
-        // 其他区块显示逻辑...
+        document.getElementById(target).style.display = 'block';
+        // 确保个人信息和树的状态正确
+        const personalInfoWrapper = document.getElementById('personal-info-wrapper');
+        const treeEmbed = document.getElementById('tree-of-life-embed');
+        if (personalInfoWrapper) personalInfoWrapper.style.display = 'block';
+        if (treeEmbed) treeEmbed.style.display = 'none';
       }
+      
+      // 显示底部菜单
+      document.getElementById("bottom-menu").style.display = "flex";
     });
   });
 

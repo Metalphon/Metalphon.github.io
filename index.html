@@ -1530,7 +1530,7 @@
       </div>
       <input type="text" placeholder="请输入你的昵称" id="nickname" name="nickname">
       <button class="oauthButton" type="button" onclick="startChat()">
-        进入留言与查看简历
+        查看简历
         <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"></path><path d="m13 17 5-5-5-5"></path></svg>
       </button>
     </form>
@@ -2357,6 +2357,136 @@
 <div id="archive-section" class="page-section" style="display:none;">
   <div class="center-content">
     <h2 style="color: #4f46e5; margin-bottom: 30px; text-align: center; width: 100%;">我的成就</h2>
+    
+    <!-- 添加奖项展示部分 -->
+    <div class="awards-container" style="background: white; border-radius: 16px; padding: 24px; margin-bottom: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%;">
+      <h3 style="color: #333; margin-bottom: 20px; text-align: center;">获奖情况</h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+        <!-- 嵌入式全国三等奖 -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">嵌入式全国三等奖</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">全国大学生嵌入式芯片与系统设计竞赛</p>
+        </div>
+        
+        <!-- 嵌入式重庆市一等奖 -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">嵌入式重庆市一等奖</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">重庆市大学生嵌入式系统设计竞赛</p>
+        </div>
+        
+        <!-- 全国大学生电子设计竞赛重庆市三等奖 -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">全国大学生电子设计竞赛重庆市三等奖</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">全国大学生电子设计竞赛重庆赛区</p>
+        </div>
+        
+        <!-- 重庆市级项目 -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">重庆市级项目</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">清淤小车设计与实现</p>
+        </div>
+
+        <!-- 本科乙等奖学金 -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">本科乙等奖学金</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">重庆理工大学</p>
+        </div>
+
+        <!-- 本科丙等奖学金 -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">本科丙等奖学金</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">重庆理工大学</p>
+        </div>
+
+        <!-- 专业排名前20% -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">专业排名前20%</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">电子信息工程专业</p>
+        </div>
+
+        <!-- 合泰杯重庆市三等奖 -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">合泰杯重庆市三等奖</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">合泰杯单片机应用设计竞赛</p>
+        </div>
+
+        <!-- 全国大学生英语竞赛C类二等奖 -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">全国大学生英语竞赛C类二等奖</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">2023年全国大学生英语竞赛</p>
+        </div>
+
+        <!-- 初级嵌入式系统设计师证书 -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">初级嵌入式系统设计师证书</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">工业和信息化部教育与考试中心</p>
+        </div>
+
+        <!-- 实习经历 -->
+        <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="margin-right: 12px;">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            <h4 style="color: #4f46e5; margin: 0; font-size: 1.1rem;">实习经历</h4>
+          </div>
+          <p style="color: #64748b; margin: 0; font-size: 0.95rem;">乐知行（重庆）科技有限公司</p>
+          <p style="color: #64748b; margin: 8px 0 0 0; font-size: 0.95rem;">重庆踔厉电子技术有限公司</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 原有的图表容器 -->
     <div class="charts-container" style="background: white; border-radius: 16px; padding: 24px; margin-bottom: 40px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%;">
       <div style="display: flex; justify-content: space-around; align-items: flex-start; gap: 20px; flex-wrap: wrap;">
         <div style="display: flex; flex-direction: column; align-items: center; min-width: 340px; flex: 1;">
@@ -2616,9 +2746,3 @@ function getGradeLevelData() {
   background: #f8f4e8 !important;
 }
 </style>
-
-<!-- 全屏比特币K线弹窗 -->
-<div id="btc-kline-fullscreen" style="display:none;position:fixed;z-index:9999;top:0;left:0;width:100vw;height:100vh;background:#18181a;align-items:center;justify-content:center;flex-direction:column;">
-  <button id="close-btc-kline" style="position:absolute;top:32px;right:48px;z-index:10000;font-size:22px;padding:10px 24px;border-radius:8px;border:none;background:rgba(255,255,255,0.85);color:#222;cursor:pointer;">关闭</button>
-  <div id="btc-kline-chart" style="width:90vw;height:80vh;background:#fff;border-radius:12px;"></div>
-</div>

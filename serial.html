@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>串口调试助手</title>
+  <style>
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body { 
+      background: #000; 
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      height: 100vh; 
+      min-height: 100vh;
+      color: #0f0;
+      overflow: hidden;
+    }
+    #matrix-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    #serial-app { 
+      position: relative;
+      z-index: 2;
+      min-height: 100vh; 
+      min-width: 100vw; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+    }
+    .serial-panel { 
+      background: rgba(0, 0, 0, 0.8); 
+      border: 1px solid #0f0;
+      border-radius: 22px; 
+      box-shadow: 0 8px 32px rgba(0,255,0,0.2); 
+      padding: 38px 36px 32px 36px; 
+      min-width: 420px; 
+      max-width: 700px; 
+      width: 60vw; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: stretch; 
+      animation: fadeInUp 0.8s; 
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .serial-row { display: flex; align-items: center; margin-bottom: 18px; }
+    .serial-row label { min-width: 70px; color: #4f46e5; font-weight: bold; }
+    .serial-row select, .serial-row input, .serial-row button, .serial-row textarea { 
+      margin-left: 8px; 
+      padding: 7px 12px; 
+      border-radius: 8px; 
+      border: 1.5px solid #0f0; 
+      font-size: 16px; 
+      transition: box-shadow 0.2s, border 0.2s;
+      background: rgba(0, 0, 0, 0.8);
+      color: #0f0;
+    }
+    .serial-row input[type=text], .serial-row textarea { flex:1; font-size: 16px; }
+    .serial-btn { 
+      padding: 8px 22px; 
+      border-radius: 10px; 
+      border: 1px solid #0f0;
+      background: rgba(0, 255, 0, 0.1); 
+      color: #0f0; 
+      font-size: 16px; 
+      margin-left: 12px; 
+      cursor: pointer; 
+      box-shadow: 0 2px 8px rgba(0,255,0,0.2); 
+      transition: background 0.2s, transform 0.2s; 
+    }
+    .serial-btn:hover { 
+      background: rgba(0, 255, 0, 0.2); 
+      transform: translateY(-2px) scale(1.04); 
+    }
+    .serial-area { 
+      width: 100%; 
+      min-height: 320px; 
+      max-height: 420px; 
+      border: 1.5px solid #0f0; 
+      border-radius: 12px; 
+      background: rgba(0, 0, 0, 0.8); 
+      color: #0f0; 
+      font-size: 16px; 
+      padding: 16px; 
+      margin-bottom: 16px; 
+      overflow-y: auto; 
+      white-space: pre-wrap; 
+      box-shadow: 0 2px 8px rgba(0,255,0,0.1); 
+    }
+    .serial-checkbox { margin-left: 18px; }
+    .serial-mode-group { margin-left: 18px; }
+    .serial-status { color: #4f46e5; font-size: 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+    .serial-status-dot {
+      width: 14px; height: 14px; border-radius: 50%; background: #bbb; display: inline-block; margin-right: 6px; box-shadow: 0 0 8px #bbb;
+      animation: none;
+    }
+    .serial-status-dot.connected {
+      background: #22c55e;
+      box-shadow: 0 0 12px #22c55e, 0 0 2px #22c55e;
+      animation: blink 1s infinite alternate;
+    }
+    @keyframes blink {
+      0% { opacity: 1; }
+      100% { opacity: 0.5; }
+    }
+    @media (max-width: 800px) {
+      .serial-panel { min-width: 0; width: 98vw; padding: 18px 4vw; }
+      .serial-area { min-height: 180px; max-height: 260px; font-size: 15px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="matrix-canvas"></canvas>
+  <div id="serial-app">
+    <div class="serial-panel">
+      <div class="serial-row">
+        <label for="baudrate">波特率</label>
+        <select id="baudrate">
+          <option>9600</option>
+          <option>19200</option>
+          <option>38400</option>
+          <option>57600</option>
+          <option>115200</option>
+        </select>
+        <button class="serial-btn" id="connect-btn">连接串口</button>
+        <button class="serial-btn" id="disconnect-btn" style="display:none;">断开</button>
+      </div>
+      <div class="serial-row">
+        <label>模式</label>
+        <span class="serial-mode-group">
+          <label><input type="radio" name="mode" value="str" checked> 字符串</label>
+          <label style="margin-left:10px;"><input type="radio" name="mode" value="hex"> 十六进制</label>
+        </span>
+        <label class="serial-checkbox"><input type="checkbox" id="auto-crlf"> 自动回车换行</label>
+        <button class="serial-btn" onclick="clearSerial()">清空</button>
+      </div>
+      <div class="serial-area" id="serial-recv"></div>
+      <div class="serial-row">
+        <input type="text" id="serial-input" placeholder="输入要发送的数据..." />
+        <button class="serial-btn" onclick="sendSerial()">发送</button>
+      </div>
+      <div class="serial-status" id="serial-status"><span class="serial-status-dot" id="serial-dot"></span><span id="serial-status-text"></span></div>
+    </div>
+  </div>
+  <script>
+    let port = null, reader = null, writer = null, keepReading = false;
+    let serialRecv = document.getElementById('serial-recv');
+    let statusEl = document.getElementById('serial-status-text');
+    let dotEl = document.getElementById('serial-dot');
+    let connectBtn = document.getElementById('connect-btn');
+    let disconnectBtn = document.getElementById('disconnect-btn');
+    let mode = 'str';
+    document.querySelectorAll('input[name="mode"]').forEach(r=>{
+      r.onchange = ()=>{ mode = document.querySelector('input[name="mode"]:checked').value; };
+    });
+    function logRecv(msg, isSend) {
+      const now = new Date().toLocaleTimeString();
+      serialRecv.textContent += `[${now}] ${isSend? 'TX':'RX'}: ${msg}\n`;
+      serialRecv.scrollTop = serialRecv.scrollHeight;
+    }
+    function clearSerial() { serialRecv.textContent = ''; }
+    function encodeHex(str) {
+      return Array.from(str).map(c=>c.charCodeAt(0).toString(16).padStart(2,'0')).join(' ');
+    }
+    function decodeHex(hex) {
+      return hex.replace(/\s+/g,'').match(/.{1,2}/g)?.map(b=>String.fromCharCode(parseInt(b,16))).join('')||'';
+    }
+    async function sendSerial() {
+      if(!writer) { statusEl.textContent = '请先连接串口'; return; }
+      let val = document.getElementById('serial-input').value;
+      if(val.trim()==='') return;
+      let sendBuf;
+      if(mode==='hex') {
+        val = val.replace(/[^0-9a-fA-F ]/g,'');
+        sendBuf = new Uint8Array(val.replace(/\s+/g,'').match(/.{1,2}/g)?.map(b=>parseInt(b,16))||[]);
+      } else {
+        sendBuf = new TextEncoder().encode(val);
+      }
+      if(document.getElementById('auto-crlf').checked) {
+        sendBuf = new Uint8Array([...sendBuf, 13, 10]);
+      }
+      await writer.write(sendBuf);
+      logRecv(mode==='hex'?Array.from(sendBuf).map(b=>b.toString(16).padStart(2,'0')).join(' '):new TextDecoder().decode(sendBuf), true);
+    }
+    async function connectSerial() {
+      if(!('serial' in navigator)) {
+        statusEl.textContent = '当前浏览器不支持Web Serial API，请使用最新版Chrome/Edge并在HTTPS或localhost下访问。';
+        dotEl.className = 'serial-status-dot';
+        return;
+      }
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: parseInt(document.getElementById('baudrate').value) });
+        writer = port.writable.getWriter();
+        reader = port.readable.getReader();
+        statusEl.textContent = '串口已连接';
+        dotEl.className = 'serial-status-dot connected';
+        connectBtn.style.display = 'none';
+        disconnectBtn.style.display = '';
+        keepReading = true;
+        readLoop();
+      } catch(e) {
+        statusEl.textContent = '连接失败: ' + e;
+        dotEl.className = 'serial-status-dot';
+      }
+    }
+    async function disconnectSerial() {
+      keepReading = false;
+      if(reader) { try { await reader.cancel(); reader.releaseLock(); } catch{} }
+      if(writer) { try { writer.releaseLock(); } catch{} }
+      if(port) { try { await port.close(); } catch{} }
+      port = reader = writer = null;
+      connectBtn.style.display = '';
+      disconnectBtn.style.display = 'none';
+      statusEl.textContent = '串口已断开';
+      dotEl.className = 'serial-status-dot';
+    }
+    async function readLoop() {
+      while(keepReading && reader) {
+        try {
+          const { value, done } = await reader.read();
+          if(done) break;
+          if(value) {
+            let msg;
+            if(mode==='hex') msg = Array.from(value).map(b=>b.toString(16).padStart(2,'0')).join(' ');
+            else msg = new TextDecoder().decode(value);
+            logRecv(msg, false);
+          }
+        } catch(e) { break; }
+      }
+    }
+    connectBtn.onclick = connectSerial;
+    disconnectBtn.onclick = disconnectSerial;
+    // 禁止回车提交表单
+    document.getElementById('serial-input').onkeydown = function(e){ if(e.key==='Enter'){ sendSerial(); return false; } };
+
+    // 添加矩阵雨效果
+    const canvas = document.getElementById('matrix-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()';
+    const charArray = chars.split('');
+    const fontSize = 14;
+    const columns = canvas.width / fontSize;
+    
+    const drops = [];
+    for(let i = 0; i < columns; i++) {
+      drops[i] = 1;
+    }
+    
+    function drawMatrix() {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = '#0F0';
+      ctx.font = fontSize + 'px monospace';
+      
+      for(let i = 0; i < drops.length; i++) {
+        const text = charArray[Math.floor(Math.random() * charArray.length)];
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+        
+        if(drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+    }
+    
+    setInterval(drawMatrix, 33);
+    
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+  </script>
+</body>
+</html> 
